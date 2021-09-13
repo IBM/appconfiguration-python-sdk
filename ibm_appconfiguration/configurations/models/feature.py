@@ -18,6 +18,7 @@ This module defines the model of a feature flag defined in App Configuration ser
 
 from typing import Any
 from ..internal.utils.logger import Logger
+from ..internal.utils.validators import Validators
 from .configuration_type import ConfigurationType
 
 
@@ -34,6 +35,7 @@ class Feature:
         self.__segment_rules = feature_list.get('segment_rules', list())
         self.__feature_data = feature_list
         self.__type = ConfigurationType(feature_list.get('type') if feature_list.get('type') is not None else ConfigurationType.NUMERIC)
+        self.__format = feature_list.get('format', None)
         self.__disabled_value = feature_list.get('disabled_value', object)
         self.__enabled_value = feature_list.get('enabled_value', object)
 
@@ -41,12 +43,16 @@ class Feature:
         """Get the Feature name"""
         return self.__name
 
-    def get_disabled_value(self) -> str:
+    def get_disabled_value(self) -> Any:
         """Get the Feature disabled value"""
+        if self.__format == "YAML":
+            return Validators.validate_yaml_string(self.__disabled_value)
         return self.__disabled_value
 
-    def get_enabled_value(self) -> str:
+    def get_enabled_value(self) -> Any:
         """Get the Feature enabled value"""
+        if self.__format == "YAML":
+            return Validators.validate_yaml_string(self.__enabled_value)
         return self.__enabled_value
 
     def get_feature_id(self) -> str:
@@ -56,6 +62,12 @@ class Feature:
     def get_feature_data_type(self) -> ConfigurationType:
         """Get the Feature data type"""
         return self.__type
+
+    def get_feature_data_format(self) -> str:
+        """Get the Feature data format"""
+        if self.__type == ConfigurationType.STRING and self.__format is None:
+            return 'TEXT'
+        return self.__format
 
     def is_enabled(self) -> bool:
         """Check the Feature is enabled or not"""

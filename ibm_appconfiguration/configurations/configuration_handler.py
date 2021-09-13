@@ -15,10 +15,12 @@
 """
 Internal class to handle the configuration.
 """
+
 from typing import Dict, List, Optional, Any
 from threading import Timer, Thread
 from ibm_appconfiguration.configurations.internal.common import config_messages, config_constants
 from .internal.utils.logger import Logger
+from .internal.utils.validators import Validators
 from .models import Feature
 from .models import SegmentRules
 from .models import Segment
@@ -29,7 +31,6 @@ from .internal.utils.socket import Socket
 from .internal.utils.url_builder import URLBuilder
 from .internal.utils.connectivity import Connectivity
 from .internal.utils.api_manager import APIManager
-
 
 class ConfigurationHandler:
     """Internal class to handle the configuration"""
@@ -330,6 +331,9 @@ class ConfigurationHandler:
                 rules_map = self.__parse_rules(segment_rules)
                 result_dict = self.__evaluate_rules(rules_map, entity_attributes,
                                                     property_obj=property_obj)
+                # if segment is null or segment value is default then yaml is auto converted
+                if property_obj.get_property_data_format() == "YAML" and type(result_dict['value']) == str:
+                    return Validators.validate_yaml_string(result_dict['value'])
                 return result_dict['value']
             return property_obj.get_value()
 
@@ -363,6 +367,9 @@ class ConfigurationHandler:
                 if len(segment_rules) > 0:
                     rules_map = self.__parse_rules(segment_rules)
                     result_dict = self.__evaluate_rules(rules_map, entity_attributes, feature=feature)
+                    # if segment is null or segment value is default then yaml is auto converted
+                    if feature.get_feature_data_format() == "YAML" and type(result_dict['value']) == str:
+                        return Validators.validate_yaml_string(result_dict['value'])
                     return result_dict['value']
                 return feature.get_enabled_value()
             return feature.get_disabled_value()
