@@ -164,6 +164,95 @@ class MyTestCase(unittest.TestCase):
         properties = self.sut.get_properties()
         self.assertEqual(len(properties), 1)
 
+    # for both properties and features
+    def test_yaml_evaluation(self):
+        Metering.get_instance().set_repeat_calls(False)
+        URLBuilder.set_auth_type(False)
+        mock_response = '''
+            {
+                "features": [
+                    {
+                        "name": "yamlFeature",
+                        "feature_id": "yamlFeature",
+                        "type": "STRING",
+                        "format": "YAML",
+                        "enabled_value": "value: enabled",
+                        "disabled_value": "value: disabled",
+                        "segment_rules": [
+                            {
+                                "rules": [
+                                    {
+                                        "segments": [
+                                            "reqbody"
+                                        ]
+                                    }
+                                ],
+                                "value": "value: targeted",
+                                "order": 1
+                            }
+                        ],
+                        "enabled": true
+                    }
+                ],
+                "properties": [
+                    {
+                        "name": "yamlProperty",
+                        "property_id": "yamlProperty",
+                        "tags": "",
+                        "type": "STRING",
+                        "format": "YAML",
+                        "value": "value: enabled",
+                        "segment_rules": [
+                            {
+                                "rules": [
+                                    {
+                                        "segments": [
+                                            "reqbody"
+                                        ]
+                                    }
+                                ],
+                                "value": "value: targeted",
+                                "order": 1
+                            }
+                        
+                        ],
+                        "created_time": "2021-05-23T08:00:56Z",
+                        "updated_time": "2021-05-23T08:00:56Z"
+                    }
+                ],
+                "segments": [
+                    {
+                        "name": "reqbody",
+                        "segment_id": "reqbody",
+                        "rules": [
+                            {
+                                "values": [
+                                    "tester.com"
+                                ],
+                                "operator": "endsWith",
+                                "attribute_name": "email"
+                            }
+                        ]
+                    }
+                ]
+            }
+        '''
+        url = 'https://cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        self.responses.add(responses.GET,
+                           url,
+                           body=mock_response,
+                           content_type='application/json',
+                           status=200)
+        self.sut.init("apikey", "guid", "region", "https://cloud.ibm.com")
+        self.sut.set_context("collection_id", "environment_id", None, True)
+        self.sut.load_data()
+        features = self.sut.get_features()
+        properties = self.sut.get_properties()
+        self.assertEqual(features['yamlFeature'].get_current_value("id1", {"email": "test.dev@tester.com"})['value'],
+                         "targeted")
+        self.assertEqual(properties['yamlProperty'].get_current_value("id1", {"email": "test.dev@tester.com"})['value'],
+                         "targeted")
+
 
 if __name__ == '__main__':
     unittest.main()

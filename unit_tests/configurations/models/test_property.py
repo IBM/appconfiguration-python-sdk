@@ -61,6 +61,101 @@ class MyTestCase(unittest.TestCase):
         value = sut.get_current_value("id1", {"email": "test.dev@tester.com"})
         self.assertEqual(value, 10)
 
+        # when valid yaml values are passed
+
+    def test_property_string1(self):
+        property = {
+            "name": "stringProperty",
+            "property_id": "stringProperty",
+            "description": "testing prop",
+            "value": "propertyValue",
+            "type": "STRING",
+            "tags": "test",
+            "segment_rules": [
+                {
+                    "rules": [
+                        {
+                            "segments": [
+                                "keuyclvf"
+                            ]
+                        }
+                    ],
+                    "value": "targeted value",
+                    "order": 1
+                }
+            ],
+            "collections": [{
+                "collection_id": "appcrash"
+            }]
+        }
+
+        sut = Property(property)
+        self.assertEqual(sut.get_property_name(), "stringProperty")
+        self.assertEqual(sut.get_property_id(), "stringProperty")
+        self.assertEqual(sut.get_value(), "propertyValue")
+        self.assertEqual(sut.get_property_data_type(), ConfigurationType.STRING)
+        self.assertEqual(sut.get_property_data_format(), "TEXT")
+        value = sut.get_current_value("", {"email": "test.dev@tester.com"})
+        self.assertEqual(value, None)
+
+    # when valid yaml values are passed
+    def test_property_yaml1(self):
+        property = {
+            "name": "yamlProperty",
+            "property_id": "yamlproperty",
+            "description": "testing prop",
+            "value": "name: student1\n---\nname: student2",
+            "type": "STRING",
+            "format": "YAML",
+            "tags": "test",
+            "segment_rules": [
+                {
+                    "rules": [
+                        {
+                            "segments": [
+                                "keuyclvf"
+                            ]
+                        }
+                    ],
+                    "value": "",
+                    "order": 1
+                }
+            ],
+            "collections": [{
+                "collection_id": "appcrash"
+            }]
+        }
+
+        sut = Property(property)
+        self.assertEqual(sut.get_property_name(), "yamlProperty")
+        self.assertEqual(sut.get_property_id(), "yamlproperty")
+        self.assertEqual(sut.get_value()[1]['name'], "student2")
+        self.assertEqual(sut.get_property_data_type(), ConfigurationType.STRING)
+        self.assertEqual(sut.get_property_data_format(), "YAML")
+        value = sut.get_current_value("id1", {"email": "test.dev@tester.com"})
+        self.assertEqual(value[0]['name'], "student1")
+
+    # when valid json values are passed
+    def test_property_json(self):
+        property = {
+            "name": "jsonProperty",
+            "property_id": "jsonProperty",
+            "description": "testing prop",
+            "value": {
+                "key1": "property value"
+            },
+            "type": "STRING",
+            "format": "JSON",
+            "tags": "test"
+        }
+
+        sut = Property(property)
+        self.assertEqual(sut.get_property_name(), "jsonProperty")
+        self.assertEqual(sut.get_property_id(), "jsonProperty")
+        self.assertEqual(sut.get_value()['key1'], "property value")
+        self.assertEqual(sut.get_property_data_type(), ConfigurationType.STRING)
+        self.assertEqual(sut.get_property_data_format(), "JSON")
+
 
 if __name__ == '__main__':
     unittest.main()

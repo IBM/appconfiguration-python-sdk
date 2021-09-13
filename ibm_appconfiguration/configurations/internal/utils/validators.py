@@ -15,6 +15,10 @@
 """
 This module provides methods to perform the input validations.
 """
+
+import yaml
+from .logger import Logger
+
 class Validators:
     """Validator class"""
     @classmethod
@@ -25,3 +29,20 @@ class Validators:
             value: value to be checked
         """
         return bool(value and value.strip())
+
+    @classmethod
+    def validate_yaml_string(cls, value: str):
+        """Validate the yaml string and retruns parsed yaml
+
+        Args:
+            value: yaml string to be checked and parsed
+        """
+        try:
+            parsed_values = list(yaml.safe_load_all(value))
+            if len(parsed_values) == 1:
+                return parsed_values[0]
+            return parsed_values
+        except Exception as err:
+            Logger.error("Error while parsing yaml string")
+            Logger.error(err)
+            return None

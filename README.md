@@ -82,7 +82,7 @@ feature = app_configuration_client.get_feature('online-check-in') # feature can 
 if feature:
     print(f'Feature Name : {0}'.format(feature.get_feature_name()))
     print(f'Feature Id : {0}'.format(feature.get_feature_id()))
-    print(f'Feature Type : {0}'.format(feature.get_feature_data_type()))
+    print(f'Feature Data Type : {0}'.format(feature.get_feature_data_type()))
     print(f'Feature is enabled : {0}'.format(feature.is_enabled()))
 
 ```
@@ -124,7 +124,7 @@ property = app_configuration_client.get_property('check-in-charges') # property 
 if property:
     print(f'Property Name : {0}'.format(property.get_property_name()))
     print(f'Property Id : {0}'.format(property.get_property_id()))
-    print(f'Property Type : {0}'.format(property.get_property_data_type()))
+    print(f'Property Data Type : {0}'.format(property.get_property_data_type()))
 ```
 
 ## Get all Properties 
@@ -155,6 +155,91 @@ Use the `property.get_current_value(entity_id=entity_id, entity_attributes=entit
   entity_id = "john_doe"
   property_value = property.get_current_value(entity_id=entity_id)
   ```
+
+## Supported Data types
+
+App Configuration service allows to configure the feature flag and properties in the following data types : Boolean,
+Numeric, String. The String data type can be of the format of a TEXT string , JSON or YAML. The SDK processes each
+format accordingly as shown in the below table.
+<details><summary>View Table</summary>
+
+| **Feature or Property value**                                                                                      | **DataType** | **DataFormat** | **Type of data returned <br> by `GetCurrentValue()`** | **Example output**                                                   |
+| ------------------------------------------------------------------------------------------------------------------ | ------------ | -------------- | ----------------------------------------------------- | -------------------------------------------------------------------- |
+| `true`                                                                                                             | BOOLEAN      | not applicable | `bool`                                                | `true`                                                               |
+| `25`                                                                                                               | NUMERIC      | not applicable | `int`                                             | `25`                                                                 |
+| "a string text"                                                                                                    | STRING       | TEXT           | `string`                                              | `a string text`                                                      |
+| <pre>{<br>  "firefox": {<br>    "name": "Firefox",<br>    "pref_url": "about:config"<br>  }<br>}</pre> | STRING       | JSON           | `Dictionary or List of Dictionary`                              | `{'firefox': {'name': 'Firefox', 'pref_url': 'about:config'}}` |
+| <pre>men:<br>  - John Smith<br>  - Bill Jones<br>women:<br>  - Mary Smith<br>  - Susan Williams</pre>  | STRING       | YAML           | `Dictionary`                              | `{'men': ['John Smith', 'Bill Jones'], 'women': ['Mary Smith', 'Susan Williams']}` |
+</details>
+
+<details><summary>Feature flag</summary>
+
+  ```py
+  feature = client.get_feature('json-feature')
+  feature.get_feature_data_type() // STRING
+  feature.get_feature_data_format() // JSON
+  feature.get_current_value(entityId, entityAttributes) // returns single dictionary object or list of dictionary object
+
+  // Example Below
+  // input json :- [{"role": "developer", "description": "do coding"},{"role": "tester", "description": "do testing"}]
+  // expected output :- "do coding"
+
+  tar_val = feature.get_current_value(entityId, entityAttributes)
+  expected_output = tar_val[0]['description']
+
+  // input json :- {"role": "tester", "description": "do testing"}
+  // expected output :- "tester"
+
+  tar_val = feature.get_current_value(entityId, entityAttributes)
+  expected_output = tar_val['role']
+
+  feature = client.getFeature('yaml-feature')
+  feature.get_feature_data_type() // STRING
+  feature.get_feature_data_format() // YAML
+  feature.get_current_value(entityId, entityAttributes) // returns dictionary object
+
+  // Example Below
+  // input yaml string :- "---\nrole: tester\ndescription: do_testing"
+  // expected output :- "do_testing"
+
+  tar_val = feature.get_current_value(entityId, entityAttributes)
+  expected_output = tar_val['description']
+  ```
+</details>
+<details><summary>Property</summary>
+
+  ```py
+  property = client.get_property('json-property')
+  property.get_property_data_type() // STRING
+  property.get_property_data_format() // JSON
+  property.get_current_value(entityId, entityAttributes) // returns single dictionary object or list of dictionary object
+
+  // Example Below
+  // input json :- [{"role": "developer", "description": "do coding"},{"role": "tester", "description": "do testing"}]
+  // expected output :- "do coding"
+
+  tar_val = property.get_current_value(entityId, entityAttributes)
+  expected_output = tar_val[0]['description']
+
+  // input json :- {"role": "tester", "description": "do testing"}
+  // expected output :- "tester"
+
+  tar_val = property.get_current_value(entityId, entityAttributes)
+  expected_output = tar_val['role']
+
+  property = client.get_property('yaml-property')
+  property.get_property_data_type() // STRING
+  property.get_property_data_format() // YAML
+  property.get_current_value(entityId, entityAttributes) // returns dictionary object 
+
+  // Example Below
+  // input yaml string :- "---\nrole: tester\ndescription: do_testing"
+  // expected output :- "do_testing"
+
+  tar_val = property.get_current_value(entityId, entityAttributes)
+  expected_output = tar_val['description']
+  ```
+</details>
 
 ## Set listener for the feature and property data changes
 
