@@ -17,6 +17,7 @@ This module defines the model of a feature flag defined in App Configuration ser
 """
 
 from typing import Any
+from ..internal.common import config_constants
 from ..internal.utils.logger import Logger
 from ..internal.utils.validators import Validators
 from .configuration_type import ConfigurationType
@@ -34,7 +35,8 @@ class Feature:
         self.__feature_id = feature_list.get('feature_id', '')
         self.__segment_rules = feature_list.get('segment_rules', list())
         self.__feature_data = feature_list
-        self.__type = ConfigurationType(feature_list.get('type') if feature_list.get('type') is not None else ConfigurationType.NUMERIC)
+        self.__type = ConfigurationType(
+            feature_list.get('type') if feature_list.get('type') is not None else ConfigurationType.NUMERIC)
         self.__format = feature_list.get('format', None)
         self.__disabled_value = feature_list.get('disabled_value', object)
         self.__enabled_value = feature_list.get('enabled_value', object)
@@ -71,6 +73,11 @@ class Feature:
 
     def is_enabled(self) -> bool:
         """Check the Feature is enabled or not"""
+        from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
+        feature_handler = ConfigurationHandler.get_instance()
+        feature_handler.record_valuation(property_id=None, feature_id=self.__feature_id,
+                                         entity_id=config_constants.DEFAULT_ENTITY_ID,
+                                         evaluated_segment_id=config_constants.DEFAULT_SEGMENT_ID)
         return self.__enabled
 
     def get_segment_rules(self) -> list:
@@ -91,4 +98,5 @@ class Feature:
             return None
         from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
         feature_handler = ConfigurationHandler.get_instance()
-        return feature_handler.feature_evaluation(feature=self, entity_id=entity_id, entity_attributes=entity_attributes)
+        return feature_handler.feature_evaluation(feature=self, is_enabled=self.__enabled, entity_id=entity_id,
+                                                  entity_attributes=entity_attributes)

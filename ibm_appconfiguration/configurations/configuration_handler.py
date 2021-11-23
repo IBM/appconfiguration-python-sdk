@@ -32,6 +32,7 @@ from .internal.utils.url_builder import URLBuilder
 from .internal.utils.connectivity import Connectivity
 from .internal.utils.api_manager import APIManager
 
+
 class ConfigurationHandler:
     """Internal class to handle the configuration"""
     __instance = None
@@ -342,12 +343,13 @@ class ConfigurationHandler:
             self.record_valuation(property_id=property_id, feature_id=None, entity_id=entity_id,
                                   evaluated_segment_id=result_dict['evaluated_segment_id'])
 
-    def feature_evaluation(self, feature: Feature, entity_id: str,
+    def feature_evaluation(self, feature: Feature, is_enabled: bool, entity_id: str,
                            entity_attributes: dict = None) -> Any:
         """Feature evaluation method
 
         Args:
             feature: Feature object
+            is_enabled: Feature object's "enabled" value (True/False)
             entity_id: Entity Id
             entity_attributes: Entity attributes object
         Returns:
@@ -358,7 +360,7 @@ class ConfigurationHandler:
             'value': None
         }
         try:
-            if feature.is_enabled():
+            if is_enabled:
 
                 if entity_attributes is None or len(entity_attributes) <= 0:
                     return feature.get_enabled_value()
