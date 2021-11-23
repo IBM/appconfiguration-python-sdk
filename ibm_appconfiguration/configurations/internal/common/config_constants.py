@@ -17,6 +17,7 @@ This file defines the constants used by the SDK.
 """
 
 DEFAULT_SEGMENT_ID = '$$null$$'
+DEFAULT_ENTITY_ID = '$$null$$'
 DEFAULT_HTTP_TYPE = 'https://'
 DEFAULT_WSS_TYPE = "wss://"
 DEFAULT_BASE_URL = ".apprapp.cloud.ibm.com"

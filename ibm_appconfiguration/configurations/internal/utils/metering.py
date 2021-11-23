@@ -19,7 +19,7 @@ from threading import Lock, Timer
 from datetime import datetime
 from .api_manager import APIManager
 from .logger import Logger
-from ..common import config_messages
+from ..common import config_messages, config_constants
 
 
 class Metering:
@@ -174,8 +174,8 @@ class Metering:
                             for segment_id, segment_map in entity_map.items():
                                 feature_json = {
                                     main_key: feature_id,
-                                    'entity_id': entity_id,
-                                    'segment_id': None if segment_id == "$$null$$" else segment_id,
+                                    'entity_id': None if entity_id == config_constants.DEFAULT_ENTITY_ID else entity_id,
+                                    'segment_id': None if segment_id == config_constants.DEFAULT_SEGMENT_ID else segment_id,
                                     'evaluation_time': segment_map['evaluation_time'],
                                     "count": segment_map['count']
                                 }
