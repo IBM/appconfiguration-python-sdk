@@ -36,16 +36,20 @@ from ibm_appconfiguration import AppConfiguration, Feature, Property, Configurat
 ## Initialize SDK
 
 ```py
-app_configuration_client = AppConfiguration.get_instance()
-app_configuration_client.init(region='region',
-               guid='guid',
-               apikey='apikey')
+appconfig_client = AppConfiguration.get_instance()
+appconfig_client.init(region='region',
+                              guid='guid',
+                              apikey='apikey')
 
-## Initialize configurations 
-app_configuration_client.set_context(collection_id='airlines-webapp',
-                       environment_id='dev')
+appconfig_client.set_context(collection_id='airlines-webapp',
+                                     environment_id='dev')
 
 ```
+:red_circle: **Important** :red_circle:
+
+The **`init()`** and **`set_context()`** are the initialisation methods and should be invoked **only once** using
+appconfig_client. The appconfig_client, once initialised, can be obtained across modules
+using **`AppConfiguration.get_instance()`**.  [See this example below](#fetching-the-appconfig_client-across-other-modules).
 
 - region : Region name where the service instance is created. Use
   - `AppConfiguration.REGION_US_SOUTH` for Dallas
@@ -61,7 +65,7 @@ app_configuration_client.set_context(collection_id='airlines-webapp',
 SDK can work offline with a local configuration file and perform feature and property related operations.
 
 ```py
-app_configuration_client.set_context(collection_id='airlines-webapp',
+appconfig_client.set_context(collection_id='airlines-webapp',
                        environment_id='dev',
                        configuration_file='saflights/flights.json',
                        live_config_update_enabled=False)
@@ -77,7 +81,7 @@ app_configuration_client.set_context(collection_id='airlines-webapp',
 ## Get single feature
 
 ```py
-feature = app_configuration_client.get_feature('online-check-in') # feature can be null incase of an invalid feature id
+feature = appconfig_client.get_feature('online-check-in') # feature can be null incase of an invalid feature id
 
 if feature:
     print(f'Feature Name : {0}'.format(feature.get_feature_name()))
@@ -90,7 +94,7 @@ if feature:
 ## Get all features 
 
 ```py
-features_dictionary = app_configuration_client.get_features()
+features_dictionary = appconfig_client.get_features()
 ```
 
 ## Evaluate a feature
@@ -120,7 +124,7 @@ Use the `feature.get_current_value(entity_id=entity_id, entity_attributes=entity
 ## Get single Property
 
 ```py
-property = app_configuration_client.get_property('check-in-charges') # property can be null incase of an invalid property id
+property = appconfig_client.get_property('check-in-charges') # property can be null incase of an invalid property id
 if property:
     print(f'Property Name : {0}'.format(property.get_property_name()))
     print(f'Property Id : {0}'.format(property.get_property_id()))
@@ -130,7 +134,7 @@ if property:
 ## Get all Properties 
 
 ```py
-properties_dictionary = app_configuration_client.get_properties()
+properties_dictionary = appconfig_client.get_properties()
 ```
 
 ## Evaluate a property
@@ -156,6 +160,21 @@ Use the `property.get_current_value(entity_id=entity_id, entity_attributes=entit
   property_value = property.get_current_value(entity_id=entity_id)
   ```
 
+## Fetching the appconfig_client across other modules
+
+Once the SDK is initialized, the appconfig_client can be obtained across other modules as shown below:
+
+```python
+# **other modules**
+
+from ibm_appconfiguration import AppConfiguration
+
+appconfig_client = AppConfiguration.get_instance()
+feature = appconfig_client.get_feature('online-check-in')
+enabled = feature.is_enabled()
+feature_value = feature.get_current_value(entity_id, entity_attributes)
+```
+
 ## Supported Data types
 
 App Configuration service allows to configure the feature flag and properties in the following data types : Boolean,
@@ -175,7 +194,7 @@ format accordingly as shown in the below table.
 <details><summary>Feature flag</summary>
 
   ```py
-  feature = client.get_feature('json-feature')
+  feature = appconfig_client.get_feature('json-feature')
   feature.get_feature_data_type() // STRING
   feature.get_feature_data_format() // JSON
   feature.get_current_value(entityId, entityAttributes) // returns single dictionary object or list of dictionary object
@@ -193,7 +212,7 @@ format accordingly as shown in the below table.
   tar_val = feature.get_current_value(entityId, entityAttributes)
   expected_output = tar_val['role']
 
-  feature = client.getFeature('yaml-feature')
+  feature = appconfig_client.getFeature('yaml-feature')
   feature.get_feature_data_type() // STRING
   feature.get_feature_data_format() // YAML
   feature.get_current_value(entityId, entityAttributes) // returns dictionary object
@@ -209,7 +228,7 @@ format accordingly as shown in the below table.
 <details><summary>Property</summary>
 
   ```py
-  property = client.get_property('json-property')
+  property = appconfig_client.get_property('json-property')
   property.get_property_data_type() // STRING
   property.get_property_data_format() // JSON
   property.get_current_value(entityId, entityAttributes) // returns single dictionary object or list of dictionary object
@@ -227,7 +246,7 @@ format accordingly as shown in the below table.
   tar_val = property.get_current_value(entityId, entityAttributes)
   expected_output = tar_val['role']
 
-  property = client.get_property('yaml-property')
+  property = appconfig_client.get_property('yaml-property')
   property.get_property_data_type() // STRING
   property.get_property_data_format() // YAML
   property.get_current_value(entityId, entityAttributes) // returns dictionary object 
@@ -243,13 +262,19 @@ format accordingly as shown in the below table.
 
 ## Set listener for the feature and property data changes
 
-To listen to the data changes add the following code in the application.
+The SDK provides mechanism to notify you in real-time when feature flag's or property's configuration changes. You can
+subscribe to configuration changes using the same appconfig_client.
 
 ```py
 def configuration_update(self):
     print('Received updates on configurations')
+    # **add your code**
+    # To find the effect of any configuration changes, you can call the feature or property related methods
 
-app_configuration_client.register_configuration_update_listener(configuration_update)
+    # feature = appconfig_client.getFeature('online-check-in')
+    # new_value = feature.get_current_value(entity_id, entity_attributes)
+
+appconfig_client.register_configuration_update_listener(configuration_update)
 
 ```
 
@@ -258,14 +283,14 @@ app_configuration_client.register_configuration_update_listener(configuration_up
 Fetch the latest configuration data. 
 
 ```py
-app_configuration_client.fetch_configurations()
+appconfig_client.fetch_configurations()
 ```
 
 ## Enable debugger (Optional)
 
 Use this method to enable/disable the logging in SDK.
 ```py
-app_configuration_client.enable_debug(True)
+appconfig_client.enable_debug(True)
 ```
 
 ## Examples 
