@@ -37,6 +37,7 @@ class AppConfiguration:
     REGION_US_SOUTH = "us-south"
     REGION_EU_GB = "eu-gb"
     REGION_AU_SYD = "au-syd"
+    REGION_US_EAST = "us-east"
     override_server_host = None
 
     @staticmethod
