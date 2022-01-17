@@ -55,6 +55,7 @@ using **`AppConfiguration.get_instance()`**.  [See this example below](#fetching
   - `AppConfiguration.REGION_US_SOUTH` for Dallas
   - `AppConfiguration.REGION_EU_GB` for London
   - `AppConfiguration.REGION_AU_SYD` for Sydney
+  - `AppConfiguration.REGION_US_EAST` for Washington DC
 - guid : GUID of the App Configuration service. Get it from the service credentials section of the dashboard
 - apikey : ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
 - collection_id : Id of the collection created in App Configuration service instance.
