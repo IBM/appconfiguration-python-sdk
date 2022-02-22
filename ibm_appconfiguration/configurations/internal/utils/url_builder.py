@@ -15,6 +15,7 @@
 """
 This module provides methods to construct different url used by the SDK.
 """
+from typing import Optional
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator, NoAuthAuthenticator, Authenticator
 from .validators import Validators
 from ..common import config_constants
@@ -34,6 +35,7 @@ class URLBuilder:
     __config_base = ''
     __iam_authenticator = None
     __hasAuth = True
+    __network_check_url = 'https://cloud.ibm.com'
 
     @classmethod
     def init_with_collection_id(cls, collection_id='', region='', guid='', environment_id='', override_server_host='',
@@ -120,8 +122,8 @@ class URLBuilder:
         return NoAuthAuthenticator()
 
     @classmethod
-    def get_network_check_url(cls) -> str:
+    def get_network_check_url(cls) -> Optional[str]:
         """Return the the network check url"""
         if cls.__hasAuth:
-            return cls.__http_base
+            return cls.__network_check_url
         return None

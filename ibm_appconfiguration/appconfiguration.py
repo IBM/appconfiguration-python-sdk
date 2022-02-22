@@ -122,21 +122,22 @@ class AppConfiguration:
         """
         return self.__apikey
 
-    def set_context(self, collection_id: str, environment_id: str,
-                    configuration_file: Optional[str] = None,
-                    live_config_update_enabled: Optional[bool] = True):
+    def set_context(self, collection_id: str, environment_id: str, configuration_file: Optional[str] = None,
+                    live_config_update_enabled: Optional[bool] = True, options: Optional[dict] = None):
 
         """Set the collection and environment value of the service.
-        This method accepts configuration_file and live_config_update_enabled
-        for offline usage.
-
         Args:
-            collection_id : Id of the collection created in App Configuration service instance.
-            environment_id : Id of the environment created in App Configuration service instance.
-            configuration_file : Path to the JSON file which contains configuration details.
-            live_config_update_enabled : Set this value to false if the new configuration values \
-            shouldn't be fetched from the server. Make sure to provide a proper JSON file \
-             in the configuration_file path. By default, this value is enabled.
+
+            collection_id (str): Id of the collection created in App Configuration service instance.
+            environment_id (str): Id of the environment created in App Configuration service instance.
+            configuration_file (str): [DEPRECATED]. Use the 'bootstrap_file' parameter in the options dict. Path to the JSON file which contains configuration details.
+            live_config_update_enabled (bool): [DEPRECATED]. Use this kwarg as part of `options` dict. Set this value to false if the new configuration values shouldn't be fetched from the server. Make sure to provide a proper JSON file in the configuration_file path. By default, this value is enabled.
+            options (dict): Dictionary object containing the optional arguments. See below for their usage.
+
+        Optional arguments:
+            persistent_cache_dir (str): Absolute path to a directory having write permission. The SDK will create a file - 'appconfiguration.json' file in the specified directory and it will be used as the persistent cache to store the App Configuration service information.
+            bootstrap_file (str): Absolute path of configuration file. This parameter when passed along with `live_config_update_enabled` value will drive the SDK to use the configurations present in this file to perform feature & property evaluations.
+            live_config_update_enabled (bool): live configurations update from the server. Set this value to `false` if the new configuration values shouldn't be fetched from the server.
         """
 
         if not self.__is_initialized:
@@ -151,14 +152,34 @@ class AppConfiguration:
             Logger.error(config_messages.ENVIRONMENT_ID_VALUE_ERROR)
             return
 
-        self.__is_initialized_configuration = True
-        if not live_config_update_enabled and configuration_file is None:
-            Logger.error(config_messages.CONFIGURATION_FILE_NOT_FOUND_ERROR)
+        default_options = {
+            'persistent_cache_dir': None,
+            'bootstrap_file': None,
+            'live_config_update_enabled': live_config_update_enabled
+        }
+
+        if configuration_file is not None:
+            Logger.info(config_messages.DEPRECATION_WARNING_MESSAGE)
+            default_options['bootstrap_file'] = configuration_file
+
+        if options is not None:
+            if Validators.validate_set_context_options(options):
+                for key in default_options:
+                    if key in options:
+                        default_options[key] = options[key]
+            else:
+                Logger.error(config_messages.SET_CONTEXT_OPTIONAL_ARGUMENTS_ERROR)
+                return
+
+        if not default_options['live_config_update_enabled'] and \
+                (default_options['bootstrap_file'] is None or not Validators.validate_string(
+                    default_options['bootstrap_file'])):
+            Logger.error(config_messages.BOOTSTRAP_FILE_NOT_FOUND_ERROR)
             return
 
-        self.__configuration_handler_instance.set_context(collection_id, environment_id,
-                                                          configuration_file,
-                                                          live_config_update_enabled)
+        self.__is_initialized_configuration = True
+
+        self.__configuration_handler_instance.set_context(collection_id, environment_id, default_options)
         self.__load_data_now()
 
     def fetch_configurations(self):
@@ -170,9 +191,7 @@ class AppConfiguration:
 
     def __setup_configuration_handler(self):
         self.__configuration_handler_instance = ConfigurationHandler.get_instance()
-        self.__configuration_handler_instance.init(apikey=self.__apikey,
-                                                   guid=self.__guid,
-                                                   region=self.__region,
+        self.__configuration_handler_instance.init(region=self.__region, guid=self.__guid, apikey=self.__apikey,
                                                    override_server_host=self.override_server_host)
 
     def __load_data_now(self):

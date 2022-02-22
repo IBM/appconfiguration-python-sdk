@@ -65,7 +65,10 @@ class MyTestCase(unittest.TestCase):
     def test_app_configuration_with_file(self):
         FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user.json')
 
-        self.sut.set_context(self.collection_id, self.environment_id, FILE, False)
+        self.sut.set_context(self.collection_id, self.environment_id, options={
+            'bootstrap_file': FILE,
+            'live_config_update_enabled': False
+        })
         time.sleep(2.0)
         self.app_configuration_actions()
 

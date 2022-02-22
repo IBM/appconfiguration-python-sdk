@@ -1,12 +1,10 @@
 
 __pycache__
-/examples/user.json
-/examples/config.py
-log.txt
 .DS_Store
 .idea
 __pycache__/
 **/.DS_Store
 /build
 /dist
-/env
+.coverage
+scripts/htmlpage/

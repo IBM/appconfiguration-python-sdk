@@ -12,7 +12,7 @@
 from setuptools import setup, find_packages
 
 NAME = "ibm-appconfiguration-python-sdk"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 # To install the library, run the following
 #
 # python setup.py install
@@ -25,7 +25,8 @@ REQUIRES = [
     "requests>=2.20,<3.0",
     "websocket-client==0.57.0",
     "ibm-cloud-sdk-core>=3.10.0",
-    "pyyaml>=5.4.1"
+    "pyyaml>=5.4.1",
+    "schema>=0.7.5"
 ]
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()

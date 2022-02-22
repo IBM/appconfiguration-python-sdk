@@ -37,13 +37,8 @@ from ibm_appconfiguration import AppConfiguration, Feature, Property, Configurat
 
 ```py
 appconfig_client = AppConfiguration.get_instance()
-appconfig_client.init(region='region',
-                              guid='guid',
-                              apikey='apikey')
-
-appconfig_client.set_context(collection_id='airlines-webapp',
-                                     environment_id='dev')
-
+appconfig_client.init(region='region', guid='guid', apikey='apikey')
+appconfig_client.set_context(collection_id='airlines-webapp', environment_id='dev')
 ```
 :red_circle: **Important** :red_circle:
 
@@ -51,44 +46,78 @@ The **`init()`** and **`set_context()`** are the initialisation methods and shou
 appconfig_client. The appconfig_client, once initialised, can be obtained across modules
 using **`AppConfiguration.get_instance()`**.  [See this example below](#fetching-the-appconfig_client-across-other-modules).
 
-- region : Region name where the service instance is created. Use
+- region : Region name where the App Configuration service instance is created. Use
   - `AppConfiguration.REGION_US_SOUTH` for Dallas
   - `AppConfiguration.REGION_EU_GB` for London
   - `AppConfiguration.REGION_AU_SYD` for Sydney
   - `AppConfiguration.REGION_US_EAST` for Washington DC
-- guid : GUID of the App Configuration service. Get it from the service credentials section of the dashboard
-- apikey : ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
-- collection_id : Id of the collection created in App Configuration service instance.
-- environment_id : Id of the environment created in App Configuration service instance.
+- guid : GUID of the App Configuration service. Obtain it from the service credentials section of the dashboard
+- apikey : ApiKey of the App Configuration service. Obtain it from the service credentials section of the dashboard
+- collection_id : Id of the collection created in App Configuration service instance under the **Collections** section.
+- environment_id : Id of the environment created in App Configuration service instance under the **Environments**
+  section.
 
-### Work offline with local configuration file
+### (Optional)
 
-SDK can work offline with a local configuration file and perform feature and property related operations.
+In order for your application and SDK to continue its operations even during the unlikely scenario of App Configuration
+service across your application restarts, you can configure the SDK to work using a persistent cache. The SDK uses the
+persistent cache to store the App Configuration data that will be available across your application restarts.
 
-```py
-appconfig_client.set_context(collection_id='airlines-webapp',
-                       environment_id='dev',
-                       configuration_file='saflights/flights.json',
-                       live_config_update_enabled=False)
+```python
+# 1. default (without persistent cache)
+appconfig_client.set_context(collection_id='airlines-webapp', environment_id='dev')
+
+# 2. optional (with persistent cache)
+appconfig_client.set_context(collection_id='airlines-webapp', environment_id='dev', options={
+  'persistent_cache_dir': '/var/lib/docker/volumes/'
+})
 ```
-- configuration_file : Path to the JSON file which contains configuration details.
-- live_config_update_enabled : Set this value to false if the new configuration values shouldn't be fetched from the server. Make sure to provide a proper JSON file in the configuration_file path. By default, this value is enabled.
 
-### Permissions required by SDK
-  Add the permission for `non-root` users for writing permission to use the cache and logs in AppConfiguration SDK.
-  AppConfiguration cache location will be `./ibm_appconfiguration/configurations/internal/utils/appconfiguration.json`.
-  The `logs.txt` file location will be the application root folder.
+* persistent_cache_dir: Absolute path to a directory which has read & write permission for the user. The SDK will create
+  a file - `appconfiguration.json` in the specified directory, and it will be used as the persistent cache to store the
+  App Configuration service information.
+
+When persistent cache is enabled, the SDK will keep the last known good configuration at the persistent cache. In the
+case of App Configuration server being unreachable, the latest configurations at the persistent cache is loaded to the
+application to continue working.
+
+Please ensure that the cache file created in the given directory is not lost or deleted in any case. For example,
+consider the case when a kubernetes pod is restarted and the cache file (appconfiguration.json) was stored in ephemeral
+volume of the pod. As pod gets restarted, kubernetes destroys the ephermal volume in the pod, as a result the cache file
+gets deleted. So, make sure that the cache file created by the SDK is always stored in persistent volume by providing
+the correct absolute path of the persistent directory.
+
+### (Optional)
+
+The SDK is also designed to serve configurations, perform feature flag & property evaluations without being connected to
+App Configuration service.
+
+```python
+appconfig_client.set_context(collection_id='airlines-webapp', environment_id='dev', options={
+  'bootstrap_file': 'saflights/flights.json',
+  'live_config_update_enabled': False
+})
+```
+
+* bootstrap_file: Absolute path of the JSON file which contains configuration details. Make sure to provide a proper
+  JSON file. You can generate this file using `ibmcloud ac config` command of the IBM Cloud App Configuration CLI.
+* live_config_update_enabled: Live configuration update from the server. Set this value to `False` if the new
+  configuration values shouldn't be fetched from the server. By default, this parameter (`live_config_update_enabled`)
+  is set to True.
 
 ## Get single feature
 
 ```py
-feature = appconfig_client.get_feature('online-check-in') # feature can be null incase of an invalid feature id
+feature = appconfig_client.get_feature('online-check-in') # feature can be None incase of an invalid feature id
 
-if feature:
+if feature is not None:
     print(f'Feature Name : {0}'.format(feature.get_feature_name()))
     print(f'Feature Id : {0}'.format(feature.get_feature_id()))
     print(f'Feature Data Type : {0}'.format(feature.get_feature_data_type()))
-    print(f'Feature is enabled : {0}'.format(feature.is_enabled()))
+    if feature.is_enabled():
+        # feature flag is enabled
+    else:
+        # feature flag is disabled
 
 ```
 
@@ -125,8 +154,8 @@ Use the `feature.get_current_value(entity_id=entity_id, entity_attributes=entity
 ## Get single Property
 
 ```py
-property = appconfig_client.get_property('check-in-charges') # property can be null incase of an invalid property id
-if property:
+property = appconfig_client.get_property('check-in-charges') # property can be None incase of an invalid property id
+if property is not None:
     print(f'Property Name : {0}'.format(property.get_property_name()))
     print(f'Property Id : {0}'.format(property.get_property_id()))
     print(f'Property Data Type : {0}'.format(property.get_property_data_type()))

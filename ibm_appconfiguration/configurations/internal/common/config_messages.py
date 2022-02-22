@@ -22,14 +22,19 @@ APIKEY_ERROR = "Provide a valid apiKey in App Configuration init"
 COLLECTION_ID_VALUE_ERROR = "Provide a valid collection_id in App Configuration set_context method"
 ENVIRONMENT_ID_VALUE_ERROR = "Provide a valid environment_id in App Configuration set_context method"
 COLLECTION_INIT_ERROR = "Invalid action in App Configuration. This action can be performed only after a successful " \
-                       "initialization operation. Please check the initialization section for errors. "
-CONFIGURATION_FILE_NOT_FOUND_ERROR = "configuration_file parameter should be provided while " \
-                                     "live_config_update_enabled is false in set_context method."
+                        "initialization operation. Please check the initialization section for errors. "
+SET_CONTEXT_OPTIONAL_ARGUMENTS_ERROR = "Invalid optional parameters passed to set_context method. Either wrong arguments keys or invalid value of arguments passed. " \
+                                       "The only available arguments are persistent_cache_dir(str), bootstrap_file(str) & live_config_update_enabled(bool)." \
+                                       "Please check the sdk initialization section in the readme."
+DEPRECATION_WARNING_MESSAGE = "DeprecationWarning: With v0.2.3, the existing method of passing the optional arguments `configuration_file` & `live_config_update_enabled` to set_context method is deprecated and will be removed from v0.3.0 Use the options argument instead."
+ERROR_NO_WRITE_PERMISSION = "Persistent cache directory provided does not have write permission. Make sure the directory has required access",
+BOOTSTRAP_FILE_NOT_FOUND_ERROR = "Provide a valid bootstrap_file path while live_config_update_enabled is false in set_context method."
 CONFIGURATION_HANDLER_INIT_ERROR = 'Invalid action in ConfigurationHandler. This action can be performed only after a ' \
                                    'successful initialization. Please check the initialization section for errors. '
 CONFIGURATION_HANDLER_METHOD_ERROR = "Invalid action in ConfigurationHandler. Should be a method/function"
-CONFIGURATION_API_ERROR = "Invalid configuration. Verify the collection_id, environment_id, apikey, guid and region."
 SINGLETON_EXCEPTION = "class must be initialized using the get_instance() method."
 FEATURE_INVALID = "Invalid feature_id - "
 NO_INTERNET_CONNECTION_ERROR = 'No connection to internet. Please re-connect.'
 PROPERTY_INVALID = "Invalid property_id - "
+CONFIGURATIONS_FETCH_SUCCESS = "Successfully fetched the configurations."
+RETRY_AFTER_TEN_MINUTES = "Failed to fetch the configurations. Retrying after 10 minutes."

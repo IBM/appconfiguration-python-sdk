@@ -15,8 +15,8 @@
 """
 Internal class to handle the configuration.
 """
-
-from typing import Dict, List, Optional, Any
+import os
+from typing import Dict, List, Any
 from threading import Timer, Thread
 from ibm_appconfiguration.configurations.internal.common import config_messages, config_constants
 from .internal.utils.logger import Logger
@@ -64,7 +64,9 @@ class ConfigurationHandler:
         ConfigurationHandler.__instance = self
         self.__retry_count = 3
         self.__retry_interval = 600
-        self.__config_file = None
+        self.__bootstrap_file = None
+        self.__persistent_cache_dir = None
+        self.__persistent_data = None
         self.__on_socket_retry = False
         self.__override_server_host = None
         self.__socket = None
@@ -72,16 +74,16 @@ class ConfigurationHandler:
         self.__is_network_connected = True
         self.__api_manager = None
 
-    def init(self, apikey: str,
+    def init(self, region: str,
              guid: str,
-             region: str,
+             apikey: str,
              override_server_host=str):
         """ Initialize the configuration.
 
         Args:
-            apikey: ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
-            guid: GUID of the App Configuration service. Get it from the service credentials section of the dashboard
             region: Region name where the service instance is created.
+            guid: GUID of the App Configuration service. Get it from the service credentials section of the dashboard
+            apikey: ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
             override_server_host: Non public urls for testing purpose.
         """
 
@@ -94,17 +96,14 @@ class ConfigurationHandler:
         self.__property_map = dict()
         self.__segment_map = dict()
 
-    def set_context(self, collection_id: str, environment_id: str,
-                    configuration_file: Optional[str] = None,
-                    live_config_update_enabled: Optional[bool] = True):
+    def set_context(self, collection_id: str, environment_id: str, options: dict):
         """Set the context for the configuration
 
         Args:
             collection_id: Id of the collection created in App Configuration service instance.
             environment_id: Id of the environment created in App Configuration service instance.
-            configuration_file: Path to the JSON file which contains configuration details.
-            live_config_update_enabled: Set this value to false if the new configuration values shouldn't be fetched from the server.
-            Make sure to provide a proper JSON file in the configuration_file path.
+            options: Optional parameters such as persistent_cache_dir, bootstrap_file, & live_config_update_enabled
+            Make sure to provide a proper JSON file in the bootstrap_file path.
             By default, this value is enabled.
         """
 
@@ -116,13 +115,12 @@ class ConfigurationHandler:
                                            environment_id=environment_id,
                                            override_server_host=self.__override_server_host,
                                            apikey=self.__apikey)
-        Metering.get_instance().set_metering_url(URLBuilder.get_metering_url(), self.__apikey)
+        Metering.get_instance().set_metering_url(URLBuilder.get_metering_url())
         self.__api_manager = APIManager.get_instance()
-        self.__api_manager.setup_base()
+        self.__live_config_update_enabled = options['live_config_update_enabled']
+        self.__bootstrap_file = options['bootstrap_file']
+        self.__persistent_cache_dir = options['persistent_cache_dir']
         self.__is_initialized = True
-
-        self.__live_config_update_enabled = live_config_update_enabled
-        self.__config_file = configuration_file
         self.__check_network()
 
     def load_data(self):
@@ -130,9 +128,36 @@ class ConfigurationHandler:
         if not self.__is_initialized:
             Logger.error(config_messages.CONFIGURATION_HANDLER_INIT_ERROR)
             return
-        if self.__config_file:
-            self.__get_file_data(self.__config_file)
-        self.__load_configurations()
+        if self.__persistent_cache_dir:
+            self.__persistent_data = FileManager.read_files(
+                file_path=os.path.join(self.__persistent_cache_dir, 'appconfiguration.json'))
+            if self.__persistent_data is not None:
+                self.__load_configurations(self.__persistent_data)
+            if not os.access(self.__persistent_cache_dir, os.W_OK):
+                Logger.error(config_messages.ERROR_NO_WRITE_PERMISSION)
+                return
+        if self.__bootstrap_file:
+            if self.__persistent_cache_dir:
+                if self.__persistent_data is None or len(self.__persistent_data) == 0:
+                    bootstrap_file_data = FileManager.read_files(file_path=self.__bootstrap_file)
+                    if bootstrap_file_data is not None:
+                        self.__load_configurations(bootstrap_file_data)
+                    else:
+                        Logger.error("Error reading bootstrap file data")
+                        return
+                    self.__write_to_persistent_storage(bootstrap_file_data, self.__persistent_cache_dir)
+                    if self.__configuration_update_listener and callable(self.__configuration_update_listener):
+                        self.__configuration_update_listener()
+                else:
+                    if self.__configuration_update_listener and callable(self.__configuration_update_listener):
+                        self.__configuration_update_listener()
+            else:
+                bootstrap_file_data = FileManager.read_files(file_path=self.__bootstrap_file)
+                if bootstrap_file_data is not None:
+                    self.__load_configurations(bootstrap_file_data)
+                else:
+                    Logger.error("Error reading bootstrap file data")
+                    return
         if self.__live_config_update_enabled:
             self.__fetch_config_data()
         else:
@@ -183,7 +208,7 @@ class ConfigurationHandler:
         """
         return self.__property_map
 
-    def get_property(self, property_id: str):
+    def get_property(self, property_id: str) -> Property:
         """Get the Property with give Property Id
 
         Args:
@@ -192,9 +217,6 @@ class ConfigurationHandler:
             Property object with the given property_id. If the Property is \
             not available then expect `None`.
         """
-        if property_id in self.__property_map:
-            return self.__property_map.get(property_id)
-        self.__load_configurations()
         if property_id in self.__property_map:
             return self.__property_map.get(property_id)
         Logger.error(config_messages.PROPERTY_INVALID + property_id)
@@ -217,9 +239,6 @@ class ConfigurationHandler:
             Feature object with the given feature_id. If the Feature is not available \
             then expect `None`.
         """
-        if feature_id in self.__feature_map:
-            return self.__feature_map.get(feature_id)
-        self.__load_configurations()
         if feature_id in self.__feature_map:
             return self.__feature_map.get(feature_id)
         Logger.error(config_messages.FEATURE_INVALID + feature_id)
@@ -248,38 +267,32 @@ class ConfigurationHandler:
             callback=self.__on_web_socket_callback
         )
 
-    def __get_file_data(self, file_path: str):
-        data = FileManager.read_files(file_path=file_path)
-        if data is not None:
-            self.__write_to_file(json=data)
-
-    def __load_configurations(self):
-        all_config: dict = FileManager.read_files()
-        if all_config:
-            if 'features' in all_config:
+    def __load_configurations(self, data: dict):
+        if len(data) != 0:
+            if 'features' in data:
                 self.__feature_map = dict()
                 try:
-                    all_feature_list: List = all_config.get('features')
+                    all_feature_list: List = data.get('features')
                     for i, feature in enumerate(all_feature_list):
                         feature_obj = Feature(feature)
                         self.__feature_map[feature_obj.get_feature_id()] = feature_obj
                 except Exception as err:
                     Logger.debug(err)
 
-            if 'properties' in all_config:
+            if 'properties' in data:
                 self.__property_map = dict()
                 try:
-                    all_property_list: List = all_config.get('properties')
+                    all_property_list: List = data.get('properties')
                     for i, property_list in enumerate(all_property_list):
                         property_obj = Property(property_list)
                         self.__property_map[property_obj.get_property_id()] = property_obj
                 except Exception as err:
                     Logger.debug(err)
 
-            if 'segments' in all_config:
+            if 'segments' in data:
                 self.__segment_map = dict()
                 try:
-                    segment_list: List = all_config.get('segments')
+                    segment_list: List = data.get('segments')
                     for i, segment in enumerate(segment_list):
                         segment: dict = segment_list[i]
                         segment_obj = Segment(segment)
@@ -427,15 +440,8 @@ class ConfigurationHandler:
                 Logger.debug(err)
         return rule_map
 
-    def __write_server_file(self, json: dict):
-        if self.__live_config_update_enabled:
-            self.__write_to_file(json)
-
-    def __write_to_file(self, json: dict):
-        FileManager.store_files(json)
-        self.__load_configurations()
-        if self.__configuration_update_listener and callable(self.__configuration_update_listener):
-            self.__configuration_update_listener()
+    def __write_to_persistent_storage(self, json: dict, file_path: str):
+        FileManager.store_files(json, os.path.join(file_path, 'appconfiguration.json'))
 
     def __fetch_from_api(self):
         if self.__is_initialized:
@@ -445,21 +451,27 @@ class ConfigurationHandler:
             status_code = response.get_status_code()
 
             if 200 <= status_code <= 299:
+                Logger.info(config_messages.CONFIGURATIONS_FETCH_SUCCESS)
                 response_data = response.get_result()
                 try:
                     response_data = dict(response_data)
-                    if response_data:
-                        self.__write_server_file(response_data)
+                    self.__load_configurations(response_data)  # load response to cache maps
+                    if self.__configuration_update_listener and callable(self.__configuration_update_listener):
+                        self.__configuration_update_listener()
+                    if self.__persistent_cache_dir:
+                        file_write_thread = Thread(target=self.__write_to_persistent_storage,
+                                                   args=(response_data, self.__persistent_cache_dir,))
+                        file_write_thread.daemon = True
+                        file_write_thread.start()
                 except Exception as exception:
                     Logger.error(f'error while while fetching {exception}')
-                    if response_data:
-                        self.__write_server_file(response_data)
             else:
+                Logger.error(response.get_result())
                 if self.__retry_count > 0:
                     self.__fetch_from_api()
                 else:
                     self.__retry_count = 3
-                    Logger.error(config_messages.CONFIGURATION_API_ERROR)
+                    Logger.info(config_messages.RETRY_AFTER_TEN_MINUTES)
                     timer = Timer(self.__retry_interval, self.__fetch_from_api)
                     timer.daemon = True
                     timer.start()
@@ -470,23 +482,19 @@ class ConfigurationHandler:
                                  closed_state=None, open_state=None):
         if message:
             self.__fetch_from_api()
-            Logger.debug(f'Received message from socket {message}')
+            Logger.debug(f'Received message from socket. {message}')
         elif error_state:
-            Logger.debug(f'Received error from socket {error_state}')
-            timer = Timer(self.__retry_interval, self.__start_web_socket)
-            timer.daemon = True
-            timer.start()
+            Logger.error(f'Received error from socket. {error_state}')
+            self.__start_web_socket()
         elif closed_state:
-            Logger.debug('Received close connection from socket')
+            Logger.error('Received close connection from socket.')
             if self.__socket is not None:
                 self.__on_socket_retry = True
-                timer = Timer(self.__retry_interval, self.__start_web_socket)
-                timer.daemon = True
-                timer.start()
+                self.__start_web_socket()
         elif open_state:
             if self.__on_socket_retry:
                 self.__on_socket_retry = False
                 self.__fetch_from_api()
-            Logger.debug('Received opened connection from socket')
+            Logger.debug('Received opened connection from socket.')
         else:
-            Logger.debug('Unknown Error inside the socket connection')
+            Logger.error('Unknown Error inside the socket connection.')

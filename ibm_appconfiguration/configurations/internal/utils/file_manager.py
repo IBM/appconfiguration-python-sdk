@@ -19,8 +19,8 @@ file based cache of the SDK.
 
 import fcntl
 import json
-import os
-from typing import Optional
+from typing import Optional, Any
+
 from .logger import Logger
 
 
@@ -28,50 +28,40 @@ class FileManager:
     """FileManager to handle the cache"""
 
     @classmethod
-    def store_files(cls, json_data: {}, file_path: Optional[str] = None) -> bool:
+    def store_files(cls, json_data: {}, file_path: str) -> bool:
         """Store the file
 
         Args:
             json_data: Data to be stored.
             file_path: File path for the cache.
         """
-        cache_loc = ''
-        if file_path is not None:
-            cache_loc = file_path
-        else:
-            cache_loc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'appconfiguration.json')
         try:
-            with open(cache_loc, 'w') as cache:
+            with open(file_path, 'w') as cache:
                 fcntl.flock(cache, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 json.dump(json_data, cache)
                 fcntl.flock(cache, fcntl.LOCK_UN)
                 return True
         except Exception as err:
-            Logger.debug(err)
+            Logger.error(err)
             return False
 
     @classmethod
-    def read_files(cls, file_path: Optional[str] = None) -> dict:
+    def read_files(cls, file_path: str) -> Optional[Any]:
         """
-        Read the data from the cache.
+        Read the data from the given path.
 
         Args:
-            file_path: File path for the cache.
+            file_path: Path of the file
         Returns:
-            Dictionary from the cache.
+            Dictionary.
         """
-        cache_loc = ''
-        if file_path is not None:
-            cache_loc = file_path
-        else:
-            cache_loc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'appconfiguration.json')
 
         try:
-            with open(cache_loc, 'r') as cache:
-                fcntl.flock(cache, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                data = json.load(cache)
-                fcntl.flock(cache, fcntl.LOCK_UN)
+            with open(file_path, 'r') as file:
+                fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                data = json.load(file)
+                fcntl.flock(file, fcntl.LOCK_UN)
                 return data
         except Exception as err:
-            Logger.debug(err)
+            Logger.error(err)
             return None

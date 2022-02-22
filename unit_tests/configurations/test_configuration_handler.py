@@ -29,11 +29,16 @@ class MyTestCase(unittest.TestCase):
         self.responses.start()
         self.addCleanup(self.responses.stop)
         self.addCleanup(self.responses.reset)
+        URLBuilder.set_auth_type(False)
         self.sut = ConfigurationHandler.get_instance()
-        self.sut.load_data()
-        self.sut.init("apikey", "guid", "region", None)
+        self.sut.init("region", "guid", "apikey", None)
         FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user.json')
-        self.sut.set_context("collectionId", "environmentId", FILE, False)
+        options = {
+            'persistent_cache_dir': None,
+            'bootstrap_file': FILE,
+            'live_config_update_enabled': False
+        }
+        self.sut.set_context("collectionId", "environmentId", options)
         self.sut.load_data()
         time.sleep(2.5)
 
@@ -42,7 +47,6 @@ class MyTestCase(unittest.TestCase):
 
     def test_load_from_web(self):
         Metering.get_instance().set_repeat_calls(False)
-        URLBuilder.set_auth_type(False)
         mock_response = '''
             {
                 "features": [
@@ -71,14 +75,19 @@ class MyTestCase(unittest.TestCase):
                 "segments": []
             }
         '''
-        url = 'https://cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
         self.responses.add(responses.GET,
                            url,
                            body=mock_response,
                            content_type='application/json',
                            status=200)
-        self.sut.init("apikey", "guid", "region", "https://cloud.ibm.com")
-        self.sut.set_context("collection_id", "environment_id", None, True)
+        self.sut.init("region", "guid", "apikey", None)
+        options = {
+            'persistent_cache_dir': None,
+            'bootstrap_file': None,
+            'live_config_update_enabled': True
+        }
+        self.sut.set_context("collection_id", "environment_id", options)
         self.sut.load_data()
         features = self.sut.get_features()
         self.assertEqual(len(features), 1)
@@ -167,7 +176,6 @@ class MyTestCase(unittest.TestCase):
     # for both properties and features
     def test_yaml_evaluation(self):
         Metering.get_instance().set_repeat_calls(False)
-        URLBuilder.set_auth_type(False)
         mock_response = '''
             {
                 "features": [
@@ -237,14 +245,19 @@ class MyTestCase(unittest.TestCase):
                 ]
             }
         '''
-        url = 'https://cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
         self.responses.add(responses.GET,
                            url,
                            body=mock_response,
                            content_type='application/json',
                            status=200)
-        self.sut.init("apikey", "guid", "region", "https://cloud.ibm.com")
-        self.sut.set_context("collection_id", "environment_id", None, True)
+        self.sut.init("region", "guid", "apikey", None)
+        options = {
+            'persistent_cache_dir': None,
+            'bootstrap_file': None,
+            'live_config_update_enabled': True
+        }
+        self.sut.set_context("collection_id", "environment_id", options)
         self.sut.load_data()
         features = self.sut.get_features()
         properties = self.sut.get_properties()

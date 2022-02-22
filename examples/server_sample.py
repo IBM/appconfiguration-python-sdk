@@ -27,15 +27,14 @@ def response():
 
 
 def setup() -> None:
-    app_config = AppConfiguration.get_instance()
-    app_config.init(region=AppConfiguration.REGION_US_SOUTH,
-                    guid=config.GUID,
-                    apikey=config.APIKEY)
-    app_config.set_context(collection_id=config.COLLECTION, environment_id=config.ENV1,
-                           configuration_file=config.FILE, live_config_update_enabled=True)
+    appconfig_client = AppConfiguration.get_instance()
+    appconfig_client.init(region=AppConfiguration.REGION_US_SOUTH,
+                          guid=config.GUID,
+                          apikey=config.APIKEY)
+    appconfig_client.set_context(collection_id=config.COLLECTION, environment_id=config.ENVIRONMENT)
 
 
-def fetch_feature(feature_id: str, request_object=None) -> str:
+def fetch_feature(feature_id: str) -> str:
     if has_data:
         app_config = AppConfiguration.get_instance()
         feature = app_config.get_feature(feature_id)
@@ -112,7 +111,7 @@ class MockServer(BaseHTTPRequestHandler):
     def do_POST(self):
         value = "POST!"
         if has_data:
-            value = fetch_feature("featurestring", self)
+            value = fetch_feature("featurestring")
         self._set_headers()
         self.wfile.write(_html(value))
 

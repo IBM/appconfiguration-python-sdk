@@ -39,7 +39,6 @@ class Metering:
         if Metering.__instance is not None:
             raise Exception("Metering " + config_messages.SINGLETON_EXCEPTION)
         self.__metering_url = None
-        self.__apikey = None
         self.__repeating = True
         self.__lock = Lock()
         self.__metering_feature_data = dict()
@@ -55,15 +54,13 @@ class Metering:
         """
         self.__repeating = repeat
 
-    def set_metering_url(self, url: str, apikey):
+    def set_metering_url(self, url: str):
         """Set the metering url
 
         Args:
             url: Url for the metering.
-            apikey: Api Key of the service.
         """
         self.__metering_url = url
-        self.__apikey = apikey
 
     def add_metering(self, guid: str, environment_id: str,
                      collection_id: str, entity_id: str,
@@ -149,13 +146,15 @@ class Metering:
     def __send_to_server(self, guid, data):
         if self.__repeating:
             api_manager = APIManager.get_instance()
-            api_manager.setup_base()
             response = api_manager.prepare_api_request(method="POST",
-                                                   url="{0}{1}/usage".format(self.__metering_url, guid),
-                                                   data=data)
+                                                       url="{0}{1}/usage".format(self.__metering_url, guid),
+                                                       data=data)
             status_code = response.get_status_code()
             if 200 <= status_code <= 299:
-                Logger.debug("Posted metering data successfully")
+                Logger.debug("Successfully posted metering data")
+            else:
+                Logger.debug("Failed to send the metering data")
+                Logger.debug(response.get_result())
 
     def __build_request_body(self, send_metering_data: dict, result: dict, main_key: str):
 
@@ -223,7 +222,7 @@ class Metering:
             collections_map = {
                 'collection_id': data['collection_id'],
                 'environment_id': data['environment_id'],
-                'usages': data['usages'][limit:limit+25]
+                'usages': data['usages'][limit:limit + 25]
             }
             self.__send_to_server(guid=guid, data=collections_map)
             limit += 25

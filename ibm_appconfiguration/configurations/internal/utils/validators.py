@@ -15,12 +15,14 @@
 """
 This module provides methods to perform the input validations.
 """
-
 import yaml
+from schema import Schema, Optional, SchemaError, And
 from .logger import Logger
+
 
 class Validators:
     """Validator class"""
+
     @classmethod
     def validate_string(cls, value: str) -> bool:
         """Validate the string
@@ -32,7 +34,7 @@ class Validators:
 
     @classmethod
     def validate_yaml_string(cls, value: str):
-        """Validate the yaml string and retruns parsed yaml
+        """Validate the yaml string and returns parsed yaml
 
         Args:
             value: yaml string to be checked and parsed
@@ -46,3 +48,20 @@ class Validators:
             Logger.error("Error while parsing yaml string")
             Logger.error(err)
             return None
+
+    @classmethod
+    def validate_set_context_options(cls, options) -> bool:
+        """Validates the options
+
+        Args:
+            options: optional keys to be checked
+        """
+        try:
+            Schema({
+                Optional('persistent_cache_dir'): And(str, lambda s: len(s) > 0),
+                Optional('bootstrap_file'): And(str, lambda s: len(s) > 0),
+                Optional('live_config_update_enabled'): bool
+            }).validate(options)
+            return True
+        except SchemaError:
+            return False
