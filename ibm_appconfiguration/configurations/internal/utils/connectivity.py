@@ -20,6 +20,7 @@ from threading import Timer
 import requests
 from .url_builder import URLBuilder
 
+
 class Connectivity:
     """Connectivity checker"""
     __instance = None

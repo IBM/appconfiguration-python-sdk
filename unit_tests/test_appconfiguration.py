@@ -22,7 +22,7 @@ from ibm_appconfiguration.configurations.internal.utils.url_builder import URLBu
 class MyTestCase(unittest.TestCase):
 
     def setUp(self):
-        URLBuilder.set_auth_type()
+        URLBuilder.set_auth_type(False)
 
     def test_configuration(self):
         sut1 = AppConfiguration.get_instance()
@@ -35,16 +35,16 @@ class MyTestCase(unittest.TestCase):
         sut1.init(None, "guid_value", "apikey_value")
         self.assertIsNotNone(sut1.get_region())
 
-        sut1.init('us-south', None, "apikey_value")
+        sut1.init('region', None, "apikey_value")
         self.assertIsNotNone(sut1.get_guid())
 
-        sut1.init('us-south', "guid_value", None)
+        sut1.init('region', "guid_value", None)
         self.assertIsNotNone(sut1.get_apikey())
 
-        sut1.init('us-south', "guid_value", "apikey_value")
+        sut1.init('region', "guid_value", "apikey_value")
         self.assertEqual(sut1.get_guid(), "guid_value")
         self.assertEqual(sut1.get_apikey(), "apikey_value")
-        self.assertEqual(sut1.get_region(), "us-south")
+        self.assertEqual(sut1.get_region(), "region")
 
     def test_configuration_fetch(self):
         sut1 = AppConfiguration.get_instance()
@@ -68,11 +68,11 @@ class MyTestCase(unittest.TestCase):
 
     def test_configuration_get_features(self):
         sut1 = AppConfiguration.get_instance()
-        sut1.init('us-south', "guid_value", "apikey_value")
+        sut1.init('region', "guid_value", "apikey_value")
         sut1.enable_debug(True)
 
         FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user.json')
-        sut1.set_context("collectionId", "environmentId", FILE, False)
+        sut1.set_context("collectionId", "environmentId", configuration_file=FILE, live_config_update_enabled=False)
         time.sleep(2.5)
 
         self.assertEqual(len(sut1.get_features()), 3)

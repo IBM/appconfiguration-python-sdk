@@ -21,10 +21,10 @@ class Window(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.__haData = False
+        self.__hasData = False
         self.title("App Configuration sample")
         self.label_text = tk.StringVar()
-        self.label_text.set('Get your Feature value after data is loaded')
+        self.label_text.set('Get your Configuration values after data is loaded')
 
         self.label = tk.Label(self, textvar=self.label_text)
         self.label.pack(fill=tk.BOTH, expand=1, padx=100, pady=30)
@@ -33,7 +33,7 @@ class Window(tk.Tk):
         hello_button.pack(side=tk.LEFT, padx=(10, 20), pady=(0, 20))
 
         numeric_button = tk.Button(self, text="Get Numeric Feature",
-                                    command=lambda: self.fetch_feature('featurenumeric'))
+                                   command=lambda: self.fetch_feature('featurenumeric'))
         numeric_button.pack(side=tk.LEFT, padx=(10, 20), pady=(0, 20))
 
         bool_button = tk.Button(self, text="Get Boolean Feature", command=lambda: self.fetch_feature('featurebool'))
@@ -45,7 +45,7 @@ class Window(tk.Tk):
         self.initialize_app()
 
     def fetch_property(self, property_id: str):
-        if self.__haData:
+        if self.__hasData:
             self.label.configure(background="red")
             app_config = AppConfiguration.get_instance()
             property_obj = app_config.get_property(property_id)
@@ -70,7 +70,7 @@ class Window(tk.Tk):
             self.label.configure(background="grey")
 
     def fetch_feature(self, feature_id: str):
-        if self.__haData:
+        if self.__hasData:
             self.label.configure(background="red")
             app_config = AppConfiguration.get_instance()
             feature = app_config.get_feature(feature_id)
@@ -103,18 +103,17 @@ class Window(tk.Tk):
             self.label.configure(background="red")
 
     def response(self):
-        self.__haData = True
+        self.__hasData = True
         self.label_text.set('Get your Feature value NOW')
 
-    def initialize_app(self, isOnLine: bool = True):
-        app_config = AppConfiguration.get_instance()
-        #app_config.override_server_host = config.URL
+    def initialize_app(self):
+        appconfig_client = AppConfiguration.get_instance()
         AppConfiguration.enable_debug(True)
-        app_config.init(region=AppConfiguration.REGION_US_SOUTH,
-                        guid=config.GUID,
-                        apikey=config.APIKEY)
-        app_config.set_context(collection_id=config.COLLECTION, environment_id=config.ENV1, configuration_file=config.FILE, live_config_update_enabled=isOnLine)
-        app_config.register_configuration_update_listener(self.response)
+        appconfig_client.init(region=AppConfiguration.REGION_US_SOUTH,
+                              guid=config.GUID,
+                              apikey=config.APIKEY)
+        appconfig_client.set_context(collection_id=config.COLLECTION, environment_id=config.ENVIRONMENT)
+        appconfig_client.register_configuration_update_listener(self.response)
         self.response()
 
 

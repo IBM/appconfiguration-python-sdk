@@ -18,6 +18,7 @@ This module defines the model of a type of a feature flag or property defined in
 
 import enum
 
+
 class ConfigurationType(enum.Enum):
     """Type of data in the Feature and Property"""
     NUMERIC = 'NUMERIC'

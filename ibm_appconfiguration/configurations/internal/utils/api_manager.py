@@ -37,13 +37,9 @@ class APIManager(BaseService):
         return APIManager.__instance
 
     def __init__(self):
-        Logger.debug("Initialised _BaseRequest")
-
-    def setup_base(self):
-        """SetUp the Base class with service_url and authenticator"""
-        BaseService.__init__(self,
-                             service_url=URLBuilder.get_base_url(),
-                             authenticator=URLBuilder.get_iam_authenticator())
+        super().__init__(service_url=URLBuilder.get_base_url(),
+                         authenticator=URLBuilder.get_iam_authenticator())
+        APIManager.__instance = self
 
     def prepare_api_request(self,
                             method: str,
@@ -59,22 +55,21 @@ class APIManager(BaseService):
             return the DetailedResponse.
         """
 
-        headers = {}
+        headers = {'Content-Type': 'application/json',
+                   'User-Agent': '{0}/{1}'.format(config_constants.SDK_NAME, __version__)}
         if data and isinstance(data, dict):
             data = self.__remove_null_values(data)
-            headers['Content-Type'] = 'application/json'
-            headers['User-Agent'] =  '{0}/{1}'.format(config_constants.SDK_NAME, __version__)
             data = json_import.dumps(data)
 
         try:
             request = self.prepare_request(method=method,
-                                       url=url,
-                                       headers=headers,
-                                       data=data)
+                                           url=url,
+                                           headers=headers,
+                                           data=data)
             response = self.send(request)
             return response
         except ApiException as api_exception:
-            return DetailedResponse(response=None,
+            return DetailedResponse(response=api_exception.message,
                                     headers=None,
                                     status_code=api_exception.code)
         except Exception as exception:

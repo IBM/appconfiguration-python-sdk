@@ -8,4 +8,13 @@ To run the examples, you will need the appropriate service instance
    4. Create a new Environment or use the "dev".
    5. Create a collection and copy the Id value.
 
- Add the above values to `config.py` file.
+ Create a file name `config.py` in the same folder. And add the above values to it
+ Example:
+ ```python
+# config.py
+
+GUID = "paste-the-guid"
+APIKEY = "paste-the-apikey"
+COLLECTION = "collection_id"
+ENVIRONMENT = "environment-id"
+```

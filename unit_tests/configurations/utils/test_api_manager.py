@@ -39,11 +39,10 @@ class MyTestCase(unittest.TestCase):
                                            apikey="apiekey")
         URLBuilder.set_auth_type(False)
         self.api_manager = APIManager.get_instance()
-        self.api_manager.setup_base()
 
     def test_get_call(self):
         mock_response = '{ "features": [], "properties": [], "segments": []}'
-        url = 'https://cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
         self.responses.add(responses.GET,
                       url,
                       body=mock_response,
