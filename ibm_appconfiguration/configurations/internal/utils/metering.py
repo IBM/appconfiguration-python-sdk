@@ -150,11 +150,22 @@ class Metering:
                                                        url="{0}{1}/usage".format(self.__metering_url, guid),
                                                        data=data)
             status_code = response.get_status_code()
-            if 200 <= status_code <= 299:
-                Logger.debug("Successfully posted metering data")
+            if status_code == 202:
+                Logger.info("Successfully posted metering data")
             else:
-                Logger.debug("Failed to send the metering data")
-                Logger.debug(response.get_result())
+                Logger.error(f'Failed to send the metering data. Reason - {response.get_result()}')
+                """schedule a function to send the same payload after 10 minutes"""
+                if status_code is None:
+                    """
+                    status_code will be None in-case of
+
+                        1. request was retried for [429, 500, 502, 503, 504] status codes which has exceeded the retry count and has raised the exception "requests.exceptions.RetryError".
+                        Check api_manager.py for more info.
+                        2. request failed due to unknown "Exception".
+                    """
+                    retry_metering = Timer(self.__send_interval, self.__send_to_server, args=(guid, data))
+                    retry_metering.daemon = True
+                    retry_metering.start()
 
     def __build_request_body(self, send_metering_data: dict, result: dict, main_key: str):
 
@@ -210,7 +221,7 @@ class Metering:
         for guid, values in result.items():
             for data in values:
                 count = len(data['usages'])
-                if count > 25:
+                if count > config_constants.DEFAULT_USAGE_LIMIT:
                     self.__send_split_metering(guid, data, count)
                 else:
                     self.__send_to_server(guid=guid, data=data)
@@ -218,11 +229,11 @@ class Metering:
 
     def __send_split_metering(self, guid: str, data: dict, count: int):
         limit = 0
-        while limit <= count:
+        while limit < count:
             collections_map = {
                 'collection_id': data['collection_id'],
                 'environment_id': data['environment_id'],
-                'usages': data['usages'][limit:limit + 25]
+                'usages': data['usages'][limit:limit + config_constants.DEFAULT_USAGE_LIMIT]
             }
             self.__send_to_server(guid=guid, data=collections_map)
-            limit += 25
+            limit += config_constants.DEFAULT_USAGE_LIMIT
