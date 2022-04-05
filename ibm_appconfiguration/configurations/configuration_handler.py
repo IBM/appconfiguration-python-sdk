@@ -47,7 +47,6 @@ class ConfigurationHandler:
     def __init__(self):
 
         """ Virtually private constructor. """
-        self.__retry_count = 3
         if ConfigurationHandler.__instance is not None:
             raise Exception("ConfigurationHandler " + config_messages.SINGLETON_EXCEPTION)
         self.__collection_id = ''
@@ -62,7 +61,6 @@ class ConfigurationHandler:
         self.__segment_map = dict()
         self.__live_config_update_enabled = True
         ConfigurationHandler.__instance = self
-        self.__retry_count = 3
         self.__retry_interval = 600
         self.__bootstrap_file = None
         self.__persistent_cache_dir = None
@@ -248,6 +246,7 @@ class ConfigurationHandler:
         if self.__is_initialized:
             self.__fetch_from_api()
             self.__on_socket_retry = False
+            # Socket connection is a long-running background task, and is safe to run as daemon threads
             config_thread = Thread(target=self.__start_web_socket, args=())
             config_thread.daemon = True
             config_thread.start()
@@ -445,12 +444,26 @@ class ConfigurationHandler:
 
     def __fetch_from_api(self):
         if self.__is_initialized:
-            self.__retry_count -= 1
+            """
+                2xx - Do not retry (Success)
+                3xx - Do not retry (Redirect)
+                4xx - Do not retry (Client errors)
+                429 - Retry ("Too Many Requests")
+                5xx - Retry (Server errors)
 
+                The imported package `ibm-cloud-sdk-core` is configured to retry the API request in case of failure.
+                Hence, we no need to write the retry logic again.
+                The API call gets retried within prepare_api_request() for 3 times in an exponential interval(1s, 2s, 4s) between each retry.
+                If all the 3 retries fails, appropriate exceptions are raised.
+                For 429 error code - The prepare_api_request() will retry the request 3 times in an interval of time mentioned in ["retry-after"] header.
+                If all the 3 retries exhausts the call is returned and appropriate exceptions are raised.
+                
+                When all the above retries fails, we schedule our own Timer to retry after 10 minutes for the response status_codes [429, 500, 502, 503, 504].
+            """
             response = self.__api_manager.prepare_api_request(method="GET", url=URLBuilder.get_config_url())
             status_code = response.get_status_code()
 
-            if 200 <= status_code <= 299:
+            if status_code == 200:
                 Logger.info(config_messages.CONFIGURATIONS_FETCH_SUCCESS)
                 response_data = response.get_result()
                 try:
@@ -458,23 +471,31 @@ class ConfigurationHandler:
                     self.__load_configurations(response_data)  # load response to cache maps
                     if self.__configuration_update_listener and callable(self.__configuration_update_listener):
                         self.__configuration_update_listener()
+                    # we have already loaded the configurations to feature & property dicts.
+                    # it is okay to "detach" the job of "writing to persistent location" from the main thread and finish the job using another thread.
+                    # But the thread shouldn't be a daemon thread, because the writing should complete even if the main thread has terminated.
                     if self.__persistent_cache_dir:
                         file_write_thread = Thread(target=self.__write_to_persistent_storage,
                                                    args=(response_data, self.__persistent_cache_dir,))
-                        file_write_thread.daemon = True
                         file_write_thread.start()
                 except Exception as exception:
                     Logger.error(f'error while while fetching {exception}')
             else:
                 Logger.error(response.get_result())
-                if self.__retry_count > 0:
-                    self.__fetch_from_api()
-                else:
-                    self.__retry_count = 3
+                if status_code is None:
+                    """
+                    status_code will be None in-case of
+                    
+                        1. request was retried for [429, 500, 502, 503, 504] status codes which has exceeded the retry count and has raised the exception "requests.exceptions.RetryError".
+                        Check api_manager.py for more info.
+                        2. request failed due to unknown "Exception".
+                    """
                     Logger.info(config_messages.RETRY_AFTER_TEN_MINUTES)
                     timer = Timer(self.__retry_interval, self.__fetch_from_api)
                     timer.daemon = True
                     timer.start()
+                # All other 4xx & 5xx status codes are not retried nor a retry is scheduled
+                # User has to take immediate action and resolve it themselves by looking at the error logs.
         else:
             Logger.debug(config_messages.CONFIGURATION_HANDLER_INIT_ERROR)
 

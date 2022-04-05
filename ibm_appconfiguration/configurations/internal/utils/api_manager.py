@@ -18,8 +18,8 @@ This module provides the methods to facilitate the API requests to the App Confi
 import json as json_import
 from typing import Optional, Union
 from ibm_cloud_sdk_core import BaseService, DetailedResponse, ApiException
+from requests.exceptions import RetryError
 from .url_builder import URLBuilder
-from .logger import Logger
 from ibm_appconfiguration.version import __version__
 from ..common import config_constants
 
@@ -39,6 +39,7 @@ class APIManager(BaseService):
     def __init__(self):
         super().__init__(service_url=URLBuilder.get_base_url(),
                          authenticator=URLBuilder.get_iam_authenticator())
+        self.enable_retries(config_constants.MAX_NUMBER_OF_RETRIES)
         APIManager.__instance = self
 
     def prepare_api_request(self,
@@ -72,9 +73,19 @@ class APIManager(BaseService):
             return DetailedResponse(response=api_exception.message,
                                     headers=None,
                                     status_code=api_exception.code)
+        except RetryError as retry_error:
+            """
+                Because the RetryError doesn't give the status_code in its exception object, we are uncertain for which status code
+                the request was failed. The status_code will be initialised as None in the DetailedResponse class and sent back to the caller.
+                The caller has to assume the None value status_code was due to one of [429, 500, 502, 503, 504]. As RetryError exception is
+                thrown for those status codes.
+            """
+            return DetailedResponse(response=retry_error)
         except Exception as exception:
-            Logger.debug(f'Error in service API call {str(exception)}')
-            return DetailedResponse(status_code=400)
+            """
+                General exception in-case above exceptions are not matched.
+            """
+            return DetailedResponse(response=exception)
 
     def __remove_null_values(self, dictionary: dict) -> dict:
         """Create a new dictionary without keys mapped to null values.
