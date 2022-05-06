@@ -35,7 +35,7 @@ class MyTestCase(unittest.TestCase):
                                            guid="guid",
                                            environment_id="environment_id",
                                            region="region",
-                                           override_server_host=base_url,
+                                           override_service_url=base_url,
                                            apikey="apiekey")
         URLBuilder.set_auth_type(False)
         self.api_manager = APIManager.get_instance()

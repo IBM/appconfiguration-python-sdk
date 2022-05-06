@@ -26,6 +26,7 @@ from .models import SegmentRules
 from .models import Segment
 from .models import Property
 from .internal.utils.file_manager import FileManager
+from .internal.utils.compute_percentage import get_normalized_value
 from .internal.utils.metering import Metering
 from .internal.utils.socket import Socket
 from .internal.utils.url_builder import URLBuilder
@@ -66,7 +67,7 @@ class ConfigurationHandler:
         self.__persistent_cache_dir = None
         self.__persistent_data = None
         self.__on_socket_retry = False
-        self.__override_server_host = None
+        self.__override_service_url = None
         self.__socket = None
         self.__connectivity = None
         self.__is_network_connected = True
@@ -75,20 +76,20 @@ class ConfigurationHandler:
     def init(self, region: str,
              guid: str,
              apikey: str,
-             override_server_host=str):
+             override_service_url=str):
         """ Initialize the configuration.
 
         Args:
             region: Region name where the service instance is created.
             guid: GUID of the App Configuration service. Get it from the service credentials section of the dashboard
             apikey: ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
-            override_server_host: Non public urls for testing purpose.
+            override_service_url: Non public urls for testing purpose.
         """
 
         self.__apikey = apikey
         self.__guid = guid
         self.__region = region
-        self.__override_server_host = override_server_host
+        self.__override_service_url = override_service_url
 
         self.__feature_map = dict()
         self.__property_map = dict()
@@ -111,7 +112,7 @@ class ConfigurationHandler:
                                            guid=self.__guid,
                                            region=self.__region,
                                            environment_id=environment_id,
-                                           override_server_host=self.__override_server_host,
+                                           override_service_url=self.__override_service_url,
                                            apikey=self.__apikey)
         Metering.get_instance().set_metering_url(URLBuilder.get_metering_url())
         self.__api_manager = APIManager.get_instance()
@@ -336,11 +337,9 @@ class ConfigurationHandler:
         }
 
         try:
-            if entity_attributes is None or len(entity_attributes) <= 0:
-                return property_obj.get_value()
 
             segment_rules = property_obj.get_segment_rules()
-            if len(segment_rules) > 0:
+            if len(segment_rules) > 0 and entity_attributes is not None and len(entity_attributes) > 0:
                 rules_map = self.__parse_rules(segment_rules)
                 result_dict = self.__evaluate_rules(rules_map, entity_attributes,
                                                     property_obj=property_obj)
@@ -373,20 +372,20 @@ class ConfigurationHandler:
         }
         try:
             if is_enabled:
-
-                if entity_attributes is None or len(entity_attributes) <= 0:
-                    return feature.get_enabled_value()
-
                 segment_rules = feature.get_segment_rules()
-                if len(segment_rules) > 0:
+                if len(segment_rules) > 0 and entity_attributes is not None and len(entity_attributes) > 0:
                     rules_map = self.__parse_rules(segment_rules)
-                    result_dict = self.__evaluate_rules(rules_map, entity_attributes, feature=feature)
+                    result_dict = self.__evaluate_rules(rules_map, entity_attributes, feature=feature,
+                                                        entity_id=entity_id)
                     # if segment is null or segment value is default then yaml is auto converted
                     if feature.get_feature_data_format() == "YAML" and type(result_dict['value']) == str:
-                        return Validators.validate_yaml_string(result_dict['value'])
-                    return result_dict['value']
-                return feature.get_enabled_value()
-            return feature.get_disabled_value()
+                        return Validators.validate_yaml_string(result_dict['value']), result_dict['is_enabled']
+                    return result_dict['value'], result_dict['is_enabled']
+                if feature.get_rollout_percentage() == 100 or (get_normalized_value(
+                        entity_id + ":" + feature.get_feature_id()) < feature.get_rollout_percentage()):
+                    return feature.get_enabled_value(), True
+                return feature.get_disabled_value(), False
+            return feature.get_disabled_value(), False
         finally:
             feature_id = None if feature is None else feature.get_feature_id()
             self.record_valuation(property_id=None, feature_id=feature_id, entity_id=entity_id,
@@ -395,10 +394,12 @@ class ConfigurationHandler:
     def __evaluate_rules(self, rules_map: dict,
                          entity_attributes: {},
                          feature: Feature = None,
-                         property_obj: Property = None) -> dict:
+                         property_obj: Property = None,
+                         entity_id: str = None) -> dict:
         result_dict = {
             'evaluated_segment_id': config_constants.DEFAULT_SEGMENT_ID,
-            'value': None
+            'value': None,
+            'is_enabled': False  # applicable only to feature flag
         }
         for i in range(1, len(rules_map) + 1):
             segment_rule = rules_map[i]
@@ -410,17 +411,39 @@ class ConfigurationHandler:
                         for _, segment_key in enumerate(segments):
                             if self.__evaluate_segment(segment_key, entity_attributes):
                                 result_dict['evaluated_segment_id'] = segment_key
-                                if segment_rule.get_value() == "$default":
-                                    result_dict[
-                                        'value'] = feature.get_enabled_value() if feature is not \
-                                                                                  None else property_obj.get_value()
+                                if feature is not None:
+                                    # evaluate_rules was called for feature flag
+                                    segment_rollout_percentage = feature.get_rollout_percentage() if segment_rule.get_rollout_percentage() == config_constants.DEFAULT_ROLLOUT_PERCENTAGE else segment_rule.get_rollout_percentage()
+                                    if segment_rollout_percentage == 100 or (get_normalized_value(
+                                            entity_id + ":" + feature.get_feature_id())) < segment_rollout_percentage:
+                                        if segment_rule.get_value() == config_constants.DEFAULT_FEATURE_VALUE:
+                                            result_dict['value'] = feature.get_enabled_value()
+                                        else:
+                                            result_dict['value'] = segment_rule.get_value()
+                                        result_dict['is_enabled'] = True
+                                    else:
+                                        result_dict['value'] = feature.get_disabled_value()
+                                        result_dict['is_enabled'] = False
                                 else:
-                                    result_dict['value'] = segment_rule.get_value()
+                                    # evaluate_rules was called for property
+                                    if segment_rule.get_value() == config_constants.DEFAULT_PROPERTY_VALUE:
+                                        result_dict['value'] = property_obj.get_value()
+                                    else:
+                                        result_dict['value'] = segment_rule.get_value()
                                 return result_dict
                     except Exception as err:
                         Logger.debug(err)
 
-        result_dict['value'] = feature.get_enabled_value() if feature is not None else property_obj.get_value()
+        if feature is not None:
+            if feature.get_rollout_percentage() == 100 or get_normalized_value(
+                    entity_id + ":" + feature.get_feature_id()) < feature.get_rollout_percentage():
+                result_dict['value'] = feature.get_enabled_value()
+                result_dict['is_enabled'] = True
+            else:
+                result_dict['value'] = feature.get_disabled_value()
+                result_dict['is_enabled'] = False
+        else:
+            result_dict['value'] = property_obj.get_value()
         return result_dict
 
     def __evaluate_segment(self, segment_key: str, entity_attributes: dict) -> bool:

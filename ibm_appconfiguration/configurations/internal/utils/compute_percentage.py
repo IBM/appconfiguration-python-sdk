@@ -1,5 +1,4 @@
-#
-# Copyright 2021 IBM All Rights Reserved.
+# Copyright 2022 IBM All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """
-Version of ibm-appconfiguration-python-sdk
+This module contains the methods related to string hashing
 """
-__version__ = '0.3.0'
+
+import mmh3
+
+
+def compute_hash(string: str):
+    seed = 0
+    return mmh3.hash(key=string, seed=seed, signed=False)
+
+
+def get_normalized_value(string: str) -> int:
+    max_hash_value = pow(2, 32)
+    normalizer = 100
+    return int((compute_hash(string) / max_hash_value) * normalizer)

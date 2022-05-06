@@ -19,20 +19,23 @@ Instrument your applications with App Configuration Python SDK, and use the App 
 ## Installation
 
 To install, use `pip` or `easy_install`:
-  
+
 ```sh
 pip install --upgrade ibm-appconfiguration-python-sdk
 ```
+
 or
 
 ```sh
  easy_install --upgrade ibm-appconfiguration-python-sdk
 ```
+
 ## Import the SDK
 
 ```py
 from ibm_appconfiguration import AppConfiguration, Feature, Property, ConfigurationType
 ```
+
 ## Initialize SDK
 
 ```py
@@ -40,6 +43,7 @@ appconfig_client = AppConfiguration.get_instance()
 appconfig_client.init(region='region', guid='guid', apikey='apikey')
 appconfig_client.set_context(collection_id='airlines-webapp', environment_id='dev')
 ```
+
 :red_circle: **Important** :red_circle:
 
 The **`init()`** and **`set_context()`** are the initialisation methods and should be invoked **only once** using
@@ -108,7 +112,7 @@ appconfig_client.set_context(collection_id='airlines-webapp', environment_id='de
 ## Get single feature
 
 ```py
-feature = appconfig_client.get_feature('online-check-in') # feature can be None incase of an invalid feature id
+feature = appconfig_client.get_feature('online-check-in')  # feature can be None incase of an invalid feature id
 
 if feature is not None:
     print(f'Feature Name : {0}'.format(feature.get_feature_name()))
@@ -121,7 +125,7 @@ if feature is not None:
 
 ```
 
-## Get all features 
+## Get all features
 
 ```py
 features_dictionary = appconfig_client.get_features()
@@ -129,11 +133,9 @@ features_dictionary = appconfig_client.get_features()
 
 ## Evaluate a feature
 
-Use the `feature.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)` method to evaluate the value of the feature flag. Pass an unique entityId as the parameter to perform the feature flag evaluation.
-
-### Usage
-
-  - If the feature flag is configured with segments in the AppConfiguration service, provide a json object as entityAttributes parameter to this method.
+Use the `feature.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)` method to evaluate the
+value of the feature flag. This method returns one of the Enabled/Disabled/Overridden value based on the evaluation. The
+data type of returned value matches that of feature flag.
 
     ```py
     entity_id = "john_doe"
@@ -141,27 +143,30 @@ Use the `feature.get_current_value(entity_id=entity_id, entity_attributes=entity
       'city': 'Bangalore',
       'country': 'India'
     }
-    feature_value = feature.get_current_value(entity_id=entity_id,    entity_attributes=entity_attributes)
+    feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
     ```
 
-  - If the feature flag is not targeted to any segments and the feature flag is turned ON this method returns the feature enabled value. And when the feature flag is turned OFF this method returns the feature disabled value.
-
-    ```py
-    entity_id = "john_doe"
-    feature_value = feature.get_current_value(entity_id=entity_id)
-    ```
+- entity_id: Id of the Entity. This will be a string identifier related to the Entity against which the feature is
+  evaluated. For example, an entity might be an instance of an app that runs on a mobile device, a microservice that
+  runs on the cloud, or a component of infrastructure that runs that microservice. For any entity to interact with App
+  Configuration, it must provide a unique entity ID.
+- entity_attributes: A dictionary consisting of the attribute name and their values that defines the specified entity.
+  This is an optional parameter if the feature flag is not configured with any targeting definition. If the targeting is
+  configured, then entity_attributes should be provided for the rule evaluation. An attribute is a parameter that is
+  used to define a segment. The SDK uses the attribute values to determine if the specified entity satisfies the
+  targeting rules, and returns the appropriate feature flag value.
 
 ## Get single Property
 
 ```py
-property = appconfig_client.get_property('check-in-charges') # property can be None incase of an invalid property id
+property = appconfig_client.get_property('check-in-charges')  # property can be None incase of an invalid property id
 if property is not None:
     print(f'Property Name : {0}'.format(property.get_property_name()))
     print(f'Property Id : {0}'.format(property.get_property_id()))
     print(f'Property Data Type : {0}'.format(property.get_property_data_type()))
 ```
 
-## Get all Properties 
+## Get all Properties
 
 ```py
 properties_dictionary = appconfig_client.get_properties()
@@ -169,26 +174,28 @@ properties_dictionary = appconfig_client.get_properties()
 
 ## Evaluate a property
 
-Use the `property.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)` method to evaluate the value of the property. Pass an unique entityId as the parameter to perform the property evaluation.
+Use the `property.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)` method to evaluate the
+value of the property. This method returns the default property value or its overridden value based on the evaluation.
+The data type of returned value matches that of property.
 
-### Usage
+    ```py
+    entity_id = "john_doe"
+    entity_attributes = {
+    'city': 'Bangalore',
+    'country': 'India'
+    }
+    property_value = property.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
+    ```
 
-- If the property is configured with segments in the App Configuration service, provide a json object as entityAttributes parameter to this method.
-  
-  ```py
-  entity_id = "john_doe"
-  entity_attributes = {
-      'city': 'Bangalore',
-      'country': 'India'
-  }
-  property_value = property.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
-  ```
-- If the property is not targeted to any segments this method returns the property value.
-
-  ```py
-  entity_id = "john_doe"
-  property_value = property.get_current_value(entity_id=entity_id)
-  ```
+- entity_id: Id of the Entity. This will be a string identifier related to the Entity against which the property is
+  evaluated. For example, an entity might be an instance of an app that runs on a mobile device, a microservice that
+  runs on the cloud, or a component of infrastructure that runs that microservice. For any entity to interact with App
+  Configuration, it must provide a unique entity ID.
+- entity_attributes: A dictionary consisting of the attribute name and their values that defines the specified entity.
+  This is an optional parameter if the property is not configured with any targeting definition. If the targeting is
+  configured, then entity_attributes should be provided for the rule evaluation. An attribute is a parameter that is
+  used to define a segment. The SDK uses the attribute values to determine if the specified entity satisfies the
+  targeting rules, and returns the appropriate property value.
 
 ## Fetching the appconfig_client across other modules
 
@@ -319,14 +326,16 @@ appconfig_client.fetch_configurations()
 ## Enable debugger (Optional)
 
 Use this method to enable/disable the logging in SDK.
+
 ```py
 appconfig_client.enable_debug(True)
 ```
 
-## Examples 
+## Examples
 
-The [examples](https://github.com/IBM/appconfiguration-python-sdk/tree/master/examples) folder has the examples. 
+The [examples](https://github.com/IBM/appconfiguration-python-sdk/tree/master/examples) folder has the examples.
 
 ## License
 
-This project is released under the Apache 2.0 license. The license's full text can be found in [LICENSE](https://github.com/IBM/appconfiguration-python-sdk/blob/master/LICENSE)
+This project is released under the Apache 2.0 license. The license's full text can be found
+in [LICENSE](https://github.com/IBM/appconfiguration-python-sdk/blob/master/LICENSE)
