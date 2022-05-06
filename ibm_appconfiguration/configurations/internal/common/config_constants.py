@@ -26,3 +26,6 @@ IAM_TEST_URL = "https://iam.test.cloud.ibm.com/identity/token"
 IAM_PROD_URL = "https://iam.cloud.ibm.com/identity/token"
 SDK_NAME = "appconfiguration-python-sdk"
 MAX_NUMBER_OF_RETRIES = 3
+DEFAULT_ROLLOUT_PERCENTAGE = '$default'
+DEFAULT_FEATURE_VALUE = '$default'
+DEFAULT_PROPERTY_VALUE = '$default'

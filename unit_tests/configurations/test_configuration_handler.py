@@ -151,13 +151,13 @@ class MyTestCase(unittest.TestCase):
             "enabled": True
         }
         feature_obj = Feature(feature_json)
-        value = self.sut.feature_evaluation(feature_obj, True, "id1", {"email": "test.dev@tester.com"})
+        value, __ = self.sut.feature_evaluation(feature_obj, True, "id1", {"email": "test.dev@tester.com"})
         self.assertEqual(value, "Welcome")
 
-        value = self.sut.feature_evaluation(feature_obj, True, "id1", {"email": "test@tester.com"})
+        value, __ = self.sut.feature_evaluation(feature_obj, True, "id1", {"email": "test@tester.com"})
         self.assertEqual(value, "hello")
 
-        value = self.sut.feature_evaluation(feature_obj, True, "id1", {})
+        value, __ = self.sut.feature_evaluation(feature_obj, True, "id1", {})
         self.assertEqual(value, "hello")
 
     def test_get_methods(self):

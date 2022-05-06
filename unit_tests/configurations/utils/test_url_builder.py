@@ -23,7 +23,7 @@ class MyTestCase(unittest.TestCase):
                                            guid="guid",
                                            environment_id="environment_id",
                                            region="region",
-                                           override_server_host="",
+                                           override_service_url="",
                                            apikey="")
         expected_config_url = '/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
         expected_socket_url = 'wss://region.apprapp.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id'

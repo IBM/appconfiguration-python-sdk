@@ -38,7 +38,7 @@ class AppConfiguration:
     REGION_EU_GB = "eu-gb"
     REGION_AU_SYD = "au-syd"
     REGION_US_EAST = "us-east"
-    override_server_host = None
+    __override_service_url = None
 
     @staticmethod
     def get_instance():
@@ -46,6 +46,22 @@ class AppConfiguration:
         if AppConfiguration.__instance is None:
             return AppConfiguration()
         return AppConfiguration.__instance
+
+    @staticmethod
+    def override_service_url(url: str):
+        """Override the default App Configuration URL.
+        This method should be invoked before the SDK initialization.
+
+        Example:
+            AppConfiguration.override_service_url("https://testurl.com")
+
+        NOTE: To be used for development purposes only.
+
+        Args:
+            url: The base url
+        """
+        if len(url) > 0:
+            AppConfiguration.__override_service_url = url
 
     @staticmethod
     def enable_debug(enable: bool):
@@ -159,7 +175,7 @@ class AppConfiguration:
         }
 
         if configuration_file is not None:
-            Logger.info(config_messages.DEPRECATION_WARNING_MESSAGE)
+            Logger.info(config_messages.DEPRECATION_WARNING_SETCONTEXT)
             default_options['bootstrap_file'] = configuration_file
 
         if options is not None:
@@ -192,7 +208,7 @@ class AppConfiguration:
     def __setup_configuration_handler(self):
         self.__configuration_handler_instance = ConfigurationHandler.get_instance()
         self.__configuration_handler_instance.init(region=self.__region, guid=self.__guid, apikey=self.__apikey,
-                                                   override_server_host=self.override_server_host)
+                                                   override_service_url=self.__override_service_url)
 
     def __load_data_now(self):
         if self.__is_loading:

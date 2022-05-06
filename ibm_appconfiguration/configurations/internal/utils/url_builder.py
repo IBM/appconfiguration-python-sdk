@@ -28,7 +28,7 @@ class URLBuilder:
     __service = "/apprapp"
     __events = "/events/v1/instances/"
     __config = "config"
-    __override_server_host = ''
+    __override_service_url = ''
     __region = ''
     __http_base = ''
     __web_socket_base = ''
@@ -38,7 +38,7 @@ class URLBuilder:
     __network_check_url = 'https://cloud.ibm.com'
 
     @classmethod
-    def init_with_collection_id(cls, collection_id='', region='', guid='', environment_id='', override_server_host='',
+    def init_with_collection_id(cls, collection_id='', region='', guid='', environment_id='', override_service_url='',
                                 apikey=''):
         """Initialise the URLBuilder
 
@@ -47,21 +47,21 @@ class URLBuilder:
             region: Region name where the service instance is created.
             guid: GUID of the App Configuration service. Get it from the service credentials section of the dashboard
             environment_id: Id of the environment created in App Configuration service instance.
-            override_server_host: Use for testing purpose
+            override_service_url: Use for testing purpose
             apikey: ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
         """
         if Validators.validate_string(collection_id) \
                 and Validators.validate_string(region) \
                 and Validators.validate_string(guid) \
                 and Validators.validate_string(environment_id):
-            cls.__override_server_host = override_server_host
+            cls.__override_service_url = override_service_url
             cls.__region = region
             cls.__web_socket_base = config_constants.DEFAULT_WSS_TYPE
             cls.__http_base = config_constants.DEFAULT_HTTP_TYPE
-            if Validators.validate_string(cls.__override_server_host):
+            if Validators.validate_string(cls.__override_service_url):
                 cls.__iam_authenticator = IAMAuthenticator(apikey, url=config_constants.IAM_TEST_URL)
-                cls.__http_base = cls.__override_server_host
-                cls.__web_socket_base += (cls.__override_server_host.replace("https://", "").replace("http://", ""))
+                cls.__http_base = cls.__override_service_url
+                cls.__web_socket_base += (cls.__override_service_url.replace("https://", "").replace("http://", ""))
             else:
                 cls.__http_base += region
                 cls.__http_base += config_constants.DEFAULT_BASE_URL
@@ -105,9 +105,6 @@ class URLBuilder:
     @classmethod
     def get_metering_url(cls) -> str:
         """Get the metering URL"""
-        # base = config_constants.DEFAULT_HTTP_TYPE + cls.__region + config_constants.DEFAULT_BASE_URL + cls.__service
-        # if Validators.validate_string(cls.__override_server_host):
-        #     base = cls.__override_server_host + cls.__service
         return '{0}'.format(cls.__events)
 
     @classmethod

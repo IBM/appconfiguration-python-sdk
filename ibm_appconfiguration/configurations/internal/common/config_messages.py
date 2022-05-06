@@ -24,9 +24,10 @@ ENVIRONMENT_ID_VALUE_ERROR = "Provide a valid environment_id in App Configuratio
 COLLECTION_INIT_ERROR = "Invalid action in App Configuration. This action can be performed only after a successful " \
                         "initialization operation. Please check the initialization section for errors. "
 SET_CONTEXT_OPTIONAL_ARGUMENTS_ERROR = "Invalid optional parameters passed to set_context method. Either wrong arguments keys or invalid value of arguments passed. " \
-                                       "The only available arguments are persistent_cache_dir(str), bootstrap_file(str) & live_config_update_enabled(bool)." \
+                                       "The only available arguments are persistent_cache_dir(string), bootstrap_file(string) & live_config_update_enabled(bool)." \
                                        "Please check the sdk initialization section in the readme."
-DEPRECATION_WARNING_MESSAGE = "DeprecationWarning: With v0.2.3, the existing method of passing the optional arguments `configuration_file` & `live_config_update_enabled` to set_context method is deprecated and will be removed from v0.3.0 Use the options argument instead."
+DEPRECATION_WARNING_SETCONTEXT = "Deprecated: With v0.2.3 onwards, the optional arguments `configuration_file` & `live_config_update_enabled` of set_context method have been deprecated. " \
+                                 "Use the options argument instead."
 ERROR_NO_WRITE_PERMISSION = "Persistent cache directory provided does not have write permission. Make sure the directory has required access",
 BOOTSTRAP_FILE_NOT_FOUND_ERROR = "Provide a valid bootstrap_file path while live_config_update_enabled is false in set_context method."
 CONFIGURATION_HANDLER_INIT_ERROR = 'Invalid action in ConfigurationHandler. This action can be performed only after a ' \

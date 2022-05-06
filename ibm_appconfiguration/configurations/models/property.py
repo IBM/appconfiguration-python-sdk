@@ -24,6 +24,7 @@ from .configuration_type import ConfigurationType
 
 class Property:
     """Property object"""
+
     def __init__(self, property_list=dict):
         """
         @type property_list: dict
@@ -32,7 +33,8 @@ class Property:
         self.__property_id = property_list.get('property_id', '')
         self.__segment_rules = property_list.get('segment_rules', list())
         self.__property_data = property_list
-        self.__type = ConfigurationType(property_list.get('type') if property_list.get('type') is not None else ConfigurationType.NUMERIC)
+        self.__type = ConfigurationType(
+            property_list.get('type') if property_list.get('type') is not None else ConfigurationType.NUMERIC)
         self.__format = property_list.get('format', None)
         self.__value = property_list.get('value', object)
 
@@ -88,18 +90,29 @@ class Property:
         """
         return self.__segment_rules
 
-    def get_current_value(self, entity_id: str, entity_attributes: {}) -> Any:
-        """Get the evaluated value of the Property
+    def get_current_value(self, entity_id: str, entity_attributes=None) -> Any:
+        """Get the evaluated value of the property.
 
         Args:
-            entity_id: Id of the Entity
-            entity_attributes: Entity attributes object
+            entity_id (str): Id of the Entity. This will be a string identifier related to the Entity against which the
+            property is evaluated. For example, an entity might be an instance of an app that runs on a mobile device,
+            a microservice that runs on the cloud, or a component of infrastructure that runs that microservice. For
+            any entity to interact with App Configuration, it must provide a unique entity ID.
+
+            entity_attributes (dict): A dictionary consisting of the attribute name and their values that defines the
+            specified entity. This is an optional parameter if the property is not configured with any targeting
+            definition. If the targeting is configured, then entity_attributes should be provided for the rule
+            evaluation. An attribute is a parameter that is used to define a segment. The SDK uses the attribute values
+            to determine if the specified entity satisfies the targeting rules, and returns the appropriate
+            property value.
+
         Returns:
-            Return the evaluated Property value
+            Returns the default property value or its overridden value based on the evaluation.
+            The data type of returned value matches that of property.
         """
 
         if not entity_id or entity_id == "":
-            Logger.error("A valid entity id should be passed for this method.")
+            Logger.error("Property evaluation: Invalid entity_id passed to get_current_value")
             return None
         from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
         configuration_handler = ConfigurationHandler.get_instance()
