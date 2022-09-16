@@ -39,6 +39,7 @@ class AppConfiguration:
     REGION_AU_SYD = "au-syd"
     REGION_US_EAST = "us-east"
     __override_service_url = None
+    __use_private_endpoint = False
 
     @staticmethod
     def get_instance():
@@ -86,6 +87,21 @@ class AppConfiguration:
         self.__is_initialized_configuration = False
         self.__is_loading = False
         AppConfiguration.__instance = self
+
+    def use_private_endpoint(self, use_private_endpoint_param: bool):
+        """Method to set the SDK to connect to App Configuration service by using a private endpoint
+        that is accessible only through the IBM Cloud private network.
+
+        Args:
+            use_private_endpoint_param: Set it to true if the SDK should connect to App Configuration using private endpoint.
+            Be default, it is set to false.
+
+        NOTE: This method must be called before calling the `init` function on the SDK.
+        """
+        if type(use_private_endpoint_param) is bool:
+            self.__use_private_endpoint = use_private_endpoint_param
+            return
+        Logger.error(config_messages.INPUT_PARAMETER_NOT_BOOLEAN)
 
     def init(self, region: str, guid: str, apikey: str):
         """Initialise the AppConfiguration
@@ -208,7 +224,8 @@ class AppConfiguration:
     def __setup_configuration_handler(self):
         self.__configuration_handler_instance = ConfigurationHandler.get_instance()
         self.__configuration_handler_instance.init(region=self.__region, guid=self.__guid, apikey=self.__apikey,
-                                                   override_service_url=self.__override_service_url)
+                                                   override_service_url=self.__override_service_url,
+                                                   use_private_endpoint=self.__use_private_endpoint)
 
     def __load_data_now(self):
         if self.__is_loading:

@@ -61,6 +61,17 @@ using **`AppConfiguration.get_instance()`**.  [See this example below](#fetching
 - environment_id : Id of the environment created in App Configuration service instance under the **Environments**
   section.
 
+### Connect using private network connection (optional)
+
+Set the SDK to connect to App Configuration service by using a private endpoint that is accessible only through the IBM
+Cloud private network.
+
+```py
+appconfig_client.use_private_endpoint(True);
+```
+
+This must be done before calling the `init` function on the SDK.
+
 ### (Optional)
 
 In order for your application and SDK to continue its operations even during the unlikely scenario of App Configuration

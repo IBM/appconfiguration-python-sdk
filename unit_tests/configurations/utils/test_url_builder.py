@@ -19,19 +19,73 @@ from ibm_appconfiguration.configurations.internal.utils.url_builder import URLBu
 class MyTestCase(unittest.TestCase):
 
     def test_url_builder(self):
+        # Test prod url
         URLBuilder.init_with_collection_id(collection_id="collection_id",
-                                           guid="guid",
                                            environment_id="environment_id",
                                            region="region",
+                                           guid="guid",
+                                           apikey="",
                                            override_service_url="",
-                                           apikey="")
-        expected_config_url = '/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
-        expected_socket_url = 'wss://region.apprapp.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id'
-        expected_metering_url = '/events/v1/instances/'
+                                           use_private_endpoint=False)
 
-        self.assertEqual(URLBuilder.get_config_url(), expected_config_url)
-        self.assertEqual(URLBuilder.get_web_socket_url(), expected_socket_url)
-        self.assertEqual(URLBuilder.get_metering_url(), expected_metering_url)
+        self.assertEqual(URLBuilder.get_base_url(), 'https://region.apprapp.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_iam_url(), 'https://iam.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_config_path(),
+                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+        self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
+        self.assertEqual(URLBuilder.get_web_socket_url(),
+                         'wss://region.apprapp.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
+
+        # Test prod url with private endpoint
+        URLBuilder.init_with_collection_id(collection_id="collection_id",
+                                           environment_id="environment_id",
+                                           region="region",
+                                           guid="guid",
+                                           apikey="",
+                                           override_service_url="",
+                                           use_private_endpoint=True)
+
+        self.assertEqual(URLBuilder.get_base_url(), 'https://private.region.apprapp.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_iam_url(), 'https://private.iam.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_config_path(),
+                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+        self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
+        self.assertEqual(URLBuilder.get_web_socket_url(),
+                         'wss://private.region.apprapp.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
+
+        # Test dev & stage url
+        URLBuilder.init_with_collection_id(collection_id="collection_id",
+                                           environment_id="environment_id",
+                                           region="region",
+                                           guid="guid",
+                                           apikey="",
+                                           override_service_url="https://region.apprapp.test.cloud.ibm.com",
+                                           use_private_endpoint=False)
+
+        self.assertEqual(URLBuilder.get_base_url(), 'https://region.apprapp.test.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_iam_url(), 'https://iam.test.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_config_path(),
+                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+        self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
+        self.assertEqual(URLBuilder.get_web_socket_url(),
+                         'wss://region.apprapp.test.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
+
+        # Test dev & stage url with private endpoint
+        URLBuilder.init_with_collection_id(collection_id="collection_id",
+                                           environment_id="environment_id",
+                                           region="region",
+                                           guid="guid",
+                                           apikey="",
+                                           override_service_url="https://region.apprapp.test.cloud.ibm.com",
+                                           use_private_endpoint=True)
+
+        self.assertEqual(URLBuilder.get_base_url(), 'https://private.region.apprapp.test.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_iam_url(), 'https://private.iam.test.cloud.ibm.com')
+        self.assertEqual(URLBuilder.get_config_path(),
+                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+        self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
+        self.assertEqual(URLBuilder.get_web_socket_url(),
+                         'wss://private.region.apprapp.test.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
 
 
 if __name__ == '__main__':
