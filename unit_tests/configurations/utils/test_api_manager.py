@@ -18,7 +18,6 @@ import responses
 from ibm_appconfiguration.configurations.internal.utils.api_manager import APIManager
 from ibm_appconfiguration.configurations.internal.utils.url_builder import URLBuilder
 
-
 base_url = 'https://cloud.ibm.com'
 
 
@@ -32,11 +31,12 @@ class MyTestCase(unittest.TestCase):
         self.addCleanup(self.responses.reset)
 
         URLBuilder.init_with_collection_id(collection_id="collection_id",
-                                           guid="guid",
                                            environment_id="environment_id",
                                            region="region",
+                                           guid="guid",
+                                           apikey="apikey",
                                            override_service_url=base_url,
-                                           apikey="apiekey")
+                                           use_private_endpoint=False)
         URLBuilder.set_auth_type(False)
         self.api_manager = APIManager.get_instance()
 
@@ -44,12 +44,12 @@ class MyTestCase(unittest.TestCase):
         mock_response = '{ "features": [], "properties": [], "segments": []}'
         url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
         self.responses.add(responses.GET,
-                      url,
-                      body=mock_response,
-                      content_type='application/json',
-                      status=200)
+                           url,
+                           body=mock_response,
+                           content_type='application/json',
+                           status=200)
 
-        resp = self.api_manager.prepare_api_request(method="GET", url=URLBuilder.get_config_url())
+        resp = self.api_manager.prepare_api_request(method="GET", url=URLBuilder.get_config_path())
         self.assertEqual(resp.get_status_code(), 200)
 
         try:
@@ -57,6 +57,7 @@ class MyTestCase(unittest.TestCase):
             self.assertEqual(len(response_data), 3)
         except Exception as exception:
             self.fail("Issues with API request")
+
 
 if __name__ == '__main__':
     unittest.main()

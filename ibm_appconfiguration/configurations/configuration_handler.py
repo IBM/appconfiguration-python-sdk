@@ -72,11 +72,13 @@ class ConfigurationHandler:
         self.__connectivity = None
         self.__is_network_connected = True
         self.__api_manager = None
+        self.__use_private_endpoint = False
 
     def init(self, region: str,
              guid: str,
              apikey: str,
-             override_service_url=str):
+             override_service_url: str,
+             use_private_endpoint: bool):
         """ Initialize the configuration.
 
         Args:
@@ -84,12 +86,14 @@ class ConfigurationHandler:
             guid: GUID of the App Configuration service. Get it from the service credentials section of the dashboard
             apikey: ApiKey of the App Configuration service. Get it from the service credentials section of the dashboard
             override_service_url: Non public urls for testing purpose.
+            use_private_endpoint: If true, use private endpoint to connect to App Configuration service instance.
         """
 
         self.__apikey = apikey
         self.__guid = guid
         self.__region = region
         self.__override_service_url = override_service_url
+        self.__use_private_endpoint = use_private_endpoint
 
         self.__feature_map = dict()
         self.__property_map = dict()
@@ -109,12 +113,13 @@ class ConfigurationHandler:
         self.__collection_id = collection_id
         self.__environment_id = environment_id
         URLBuilder.init_with_collection_id(collection_id=collection_id,
-                                           guid=self.__guid,
-                                           region=self.__region,
                                            environment_id=environment_id,
+                                           region=self.__region,
+                                           guid=self.__guid,
+                                           apikey=self.__apikey,
                                            override_service_url=self.__override_service_url,
-                                           apikey=self.__apikey)
-        Metering.get_instance().set_metering_url(URLBuilder.get_metering_url())
+                                           use_private_endpoint=self.__use_private_endpoint)
+        Metering.get_instance().set_metering_url(URLBuilder.get_metering_path())
         self.__api_manager = APIManager.get_instance()
         self.__live_config_update_enabled = options['live_config_update_enabled']
         self.__bootstrap_file = options['bootstrap_file']
@@ -483,7 +488,7 @@ class ConfigurationHandler:
                 
                 When all the above retries fails, we schedule our own Timer to retry after 10 minutes for the response status_codes [429, 500, 502, 503, 504].
             """
-            response = self.__api_manager.prepare_api_request(method="GET", url=URLBuilder.get_config_url())
+            response = self.__api_manager.prepare_api_request(method="GET", url=URLBuilder.get_config_path())
             status_code = response.get_status_code()
 
             if status_code == 200:

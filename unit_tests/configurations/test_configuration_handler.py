@@ -31,7 +31,7 @@ class MyTestCase(unittest.TestCase):
         self.addCleanup(self.responses.reset)
         URLBuilder.set_auth_type(False)
         self.sut = ConfigurationHandler.get_instance()
-        self.sut.init("region", "guid", "apikey", None)
+        self.sut.init("region", "guid", "apikey", None, False)
         FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user.json')
         options = {
             'persistent_cache_dir': None,
@@ -81,7 +81,7 @@ class MyTestCase(unittest.TestCase):
                            body=mock_response,
                            content_type='application/json',
                            status=200)
-        self.sut.init("region", "guid", "apikey", None)
+        self.sut.init("region", "guid", "apikey", None, False)
         options = {
             'persistent_cache_dir': None,
             'bootstrap_file': None,
@@ -251,7 +251,7 @@ class MyTestCase(unittest.TestCase):
                            body=mock_response,
                            content_type='application/json',
                            status=200)
-        self.sut.init("region", "guid", "apikey", None)
+        self.sut.init("region", "guid", "apikey", None, False)
         options = {
             'persistent_cache_dir': None,
             'bootstrap_file': None,

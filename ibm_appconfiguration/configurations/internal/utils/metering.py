@@ -147,7 +147,7 @@ class Metering:
         if self.__repeating:
             api_manager = APIManager.get_instance()
             response = api_manager.prepare_api_request(method="POST",
-                                                       url="{0}{1}/usage".format(self.__metering_url, guid),
+                                                       url=self.__metering_url,
                                                        data=data)
             status_code = response.get_status_code()
             if status_code == 202:

@@ -18,12 +18,7 @@ This file defines the constants used by the SDK.
 
 DEFAULT_SEGMENT_ID = '$$null$$'
 DEFAULT_ENTITY_ID = '$$null$$'
-DEFAULT_HTTP_TYPE = 'https://'
-DEFAULT_WSS_TYPE = "wss://"
-DEFAULT_BASE_URL = ".apprapp.cloud.ibm.com"
 DEFAULT_USAGE_LIMIT = 10
-IAM_TEST_URL = "https://iam.test.cloud.ibm.com/identity/token"
-IAM_PROD_URL = "https://iam.cloud.ibm.com/identity/token"
 SDK_NAME = "appconfiguration-python-sdk"
 MAX_NUMBER_OF_RETRIES = 3
 DEFAULT_ROLLOUT_PERCENTAGE = '$default'
