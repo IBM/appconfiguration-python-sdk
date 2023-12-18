@@ -1,5 +1,5 @@
 # test dependencies
-responses>=0.10.6
+responses>=0.24.1
 pylint>=1.4.4
 python-dotenv>=0.17.1
 
