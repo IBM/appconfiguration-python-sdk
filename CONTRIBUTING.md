@@ -48,10 +48,11 @@ You probably want to set up a [virtualenv].
 1. Install the test dependencies with:
     ```sh
     pip install -r requirements-dev.txt
+    pip install pytest
     ```
 1. Run the test cases with:
     ```sh
-    py.test unit_tests
+    pytest unit_tests
     ```
 
 ## Code coverage
