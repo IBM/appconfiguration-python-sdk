@@ -38,6 +38,7 @@ class AppConfiguration:
     REGION_EU_GB = "eu-gb"
     REGION_AU_SYD = "au-syd"
     REGION_US_EAST = "us-east"
+    REGION_EU_DE = "eu-de"
     __override_service_url = None
     __use_private_endpoint = False
 
