@@ -44,7 +44,7 @@ class Socket:
         )
         self.ws_client.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
 
-    def on_message(self, message):
+    def on_message(self, _, message):
         """Socket on-message
 
         Args:
@@ -54,7 +54,7 @@ class Socket:
             return
         self.__callback(message=message)
 
-    def on_error(self, error):
+    def on_error(self, _, error):
         """Socket on-error
 
         Args:
@@ -63,11 +63,11 @@ class Socket:
         self.__callback(error_state=error)
         self.ws_client.close()
 
-    def on_close(self):
+    def on_close(self, _, close_status_code, close_msg):
         """Socket on-close call"""
         self.__callback(closed_state='Closed the web_socket')
 
-    def on_open(self):
+    def on_open(self, _):
         """Socket on-open call"""
         self.__callback(open_state='Opened the web_socket')
 

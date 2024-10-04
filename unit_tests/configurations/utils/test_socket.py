@@ -32,23 +32,23 @@ class MyTestCase(unittest.TestCase):
     def test_socket(self):
         self.__socket = Socket()
         self.__socket.setup(
-            url="",
+            url="ws://testurl.com",
             headers=[],
             callback=self.callback
         )
 
         self.assertIsNotNone(self.__socket)
 
-        self.__socket.on_message("Socket message")
+        self.__socket.on_message(self.__socket.ws_client,"Socket message")
         self.assertEqual(self.expected_message, "Socket message")
 
-        self.__socket.on_error("Error message")
+        self.__socket.on_error(self.__socket.ws_client, "Error message")
         self.assertEqual(self.expected_error, "Error message")
 
-        self.__socket.on_open()
+        self.__socket.on_open(self.__socket.ws_client)
         self.assertEqual(self.expected_open_state, "Opened the web_socket")
 
-        self.__socket.on_close()
+        self.__socket.on_close(self.__socket.ws_client, 1000, "normal closure")
         self.assertEqual(self.expected_closed_state, "Closed the web_socket")
 
 
