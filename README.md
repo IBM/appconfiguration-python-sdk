@@ -149,14 +149,14 @@ Use the `feature.get_current_value(entity_id=entity_id, entity_attributes=entity
 value of the feature flag. This method returns one of the Enabled/Disabled/Overridden value based on the evaluation. The
 data type of returned value matches that of feature flag.
 
-    ```py
-    entity_id = "john_doe"
-    entity_attributes = {
-      'city': 'Bangalore',
-      'country': 'India'
-    }
-    feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
-    ```
+```py
+entity_id = "john_doe"
+entity_attributes = {
+    'city': 'Bangalore',
+    'country': 'India'
+}
+feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
+```
 
 - entity_id: Id of the Entity. This will be a string identifier related to the Entity against which the feature is
   evaluated. For example, an entity might be an instance of an app that runs on a mobile device, a microservice that
@@ -190,14 +190,14 @@ Use the `property.get_current_value(entity_id=entity_id, entity_attributes=entit
 value of the property. This method returns the default property value or its overridden value based on the evaluation.
 The data type of returned value matches that of property.
 
-    ```py
-    entity_id = "john_doe"
-    entity_attributes = {
+```py
+entity_id = "john_doe"
+entity_attributes = {
     'city': 'Bangalore',
     'country': 'India'
-    }
-    property_value = property.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
-    ```
+}
+property_value = property.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
+```
 
 - entity_id: Id of the Entity. This will be a string identifier related to the Entity against which the property is
   evaluated. For example, an entity might be an instance of an app that runs on a mobile device, a microservice that
@@ -324,7 +324,6 @@ def configuration_update(self):
     # new_value = feature.get_current_value(entity_id, entity_attributes)
 
 appconfig_client.register_configuration_update_listener(configuration_update)
-
 ```
 
 ## Fetch latest data
