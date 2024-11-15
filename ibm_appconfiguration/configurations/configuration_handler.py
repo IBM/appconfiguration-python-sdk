@@ -32,6 +32,14 @@ from .internal.utils.socket import Socket
 from .internal.utils.url_builder import URLBuilder
 from .internal.utils.connectivity import Connectivity
 from .internal.utils.api_manager import APIManager
+import sys
+from time import sleep
+
+# Server max time out is assumed to be 1 week = 604800 seconds = 40320*15
+sys.setrecursionlimit(40320)
+
+# delay between each web socket connection retry
+delay = 15
 
 
 class ConfigurationHandler:
@@ -62,7 +70,7 @@ class ConfigurationHandler:
         self.__segment_map = dict()
         self.__live_config_update_enabled = True
         ConfigurationHandler.__instance = self
-        self.__retry_interval = 600
+        self.__retry_interval = 120
         self.__bootstrap_file = None
         self.__persistent_cache_dir = None
         self.__persistent_data = None
@@ -510,7 +518,7 @@ class ConfigurationHandler:
                     Logger.error(f'error while while fetching {exception}')
             else:
                 Logger.error(response.get_result())
-                if status_code is None:
+                if status_code is None or status_code == 499:
                     """
                     status_code will be None in-case of
                     
@@ -518,7 +526,7 @@ class ConfigurationHandler:
                         Check api_manager.py for more info.
                         2. request failed due to unknown "Exception".
                     """
-                    Logger.info(config_messages.RETRY_AFTER_TEN_MINUTES)
+                    Logger.info(config_messages.RETRY_AFTER_TWO_MINUTES)
                     timer = Timer(self.__retry_interval, self.__fetch_from_api)
                     timer.daemon = True
                     timer.start()
@@ -534,12 +542,14 @@ class ConfigurationHandler:
             Logger.debug(f'Received message from socket. {message}')
         elif error_state:
             Logger.error(f'Received error from socket. {error_state}')
+            self.__on_socket_retry = True
+            sleep(delay)
             self.__start_web_socket()
         elif closed_state:
             Logger.error('Received close connection from socket.')
-            if self.__socket is not None:
-                self.__on_socket_retry = True
-                self.__start_web_socket()
+            self.__on_socket_retry = True
+            sleep(delay)
+            self.__start_web_socket()
         elif open_state:
             if self.__on_socket_retry:
                 self.__on_socket_retry = False
