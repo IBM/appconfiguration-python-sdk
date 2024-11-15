@@ -542,11 +542,13 @@ class ConfigurationHandler:
             Logger.debug(f'Received message from socket. {message}')
         elif error_state:
             Logger.error(f'Received error from socket. {error_state}')
+            Logger.info('Reconnecting to server....')
             self.__on_socket_retry = True
             sleep(delay)
             self.__start_web_socket()
         elif closed_state:
             Logger.error('Received close connection from socket.')
+            Logger.info('Reconnecting to server....')
             self.__on_socket_retry = True
             sleep(delay)
             self.__start_web_socket()
