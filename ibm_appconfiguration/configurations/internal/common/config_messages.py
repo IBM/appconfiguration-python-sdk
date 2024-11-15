@@ -38,5 +38,5 @@ FEATURE_INVALID = "Invalid feature_id - "
 NO_INTERNET_CONNECTION_ERROR = 'No connection to internet. Please re-connect.'
 PROPERTY_INVALID = "Invalid property_id - "
 CONFIGURATIONS_FETCH_SUCCESS = "Successfully fetched the configurations."
-RETRY_AFTER_TEN_MINUTES = "Failed to fetch the configurations. Retrying after 10 minutes."
+RETRY_AFTER_TWO_MINUTES = "Failed to fetch the configurations. Retrying after 2 minutes."
 INPUT_PARAMETER_NOT_BOOLEAN = "Input parameter passed to use_private_endpoint() method is not boolean. Default value will be used."
