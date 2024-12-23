@@ -39,6 +39,9 @@ class AppConfiguration:
     REGION_AU_SYD = "au-syd"
     REGION_US_EAST = "us-east"
     REGION_EU_DE = "eu-de"
+    REGION_CA_TOR = "ca-tor"
+    REGION_JP_TOK = "jp-tok"
+    REGION_JP_OSA = "jp-osa"
     __override_service_url = None
     __use_private_endpoint = False
 
