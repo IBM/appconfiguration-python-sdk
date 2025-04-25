@@ -298,3 +298,12 @@ class AppConfiguration:
             return self.__configuration_handler_instance.get_property(property_id)
         Logger.error(config_messages.COLLECTION_INIT_ERROR)
         return None
+
+    def is_connected(self) -> bool:
+        """ Get the status of server-client connection
+
+        Returns: boolean indicating connection status
+        """
+        if self.__configuration_handler_instance is None:
+            return False
+        return self.__configuration_handler_instance.is_connected()

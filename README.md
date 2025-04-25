@@ -50,15 +50,7 @@ The **`init()`** and **`set_context()`** are the initialisation methods and shou
 appconfig_client. The appconfig_client, once initialised, can be obtained across modules
 using **`AppConfiguration.get_instance()`**.  [See this example below](#fetching-the-appconfig_client-across-other-modules).
 
-- region : Region name where the App Configuration service instance is created. Use
-  - `AppConfiguration.REGION_US_SOUTH` for Dallas
-  - `AppConfiguration.REGION_EU_GB` for London
-  - `AppConfiguration.REGION_AU_SYD` for Sydney
-  - `AppConfiguration.REGION_US_EAST` for Washington DC
-  - `AppConfiguration.REGION_EU_DE` for Frankfurt
-  - `AppConfiguration.REGION_CA_TOR` for Toronto
-  - `AppConfiguration.REGION_JP_TOK` for Tokyo
-  - `AppConfiguration.REGION_JP_OSA` for Osaka
+- region : Region name where the App Configuration service instance is created. See list of supported locations [here](https://cloud.ibm.com/catalog/services/app-configuration). Eg:- `us-south`, `au-syd` etc.
 - guid : GUID of the App Configuration service. Obtain it from the service credentials section of the dashboard
 - apikey : ApiKey of the App Configuration service. Obtain it from the service credentials section of the dashboard
 - collection_id : Id of the collection created in App Configuration service instance under the **Collections** section.

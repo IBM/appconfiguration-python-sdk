@@ -46,6 +46,9 @@ class ConfigurationHandler:
     """Internal class to handle the configuration"""
     __instance = None
 
+    # variable to keep track of server-client connection status
+    __is_alive = False
+
     @staticmethod
     def get_instance():
         """ Static access method. """
@@ -538,24 +541,35 @@ class ConfigurationHandler:
     def __on_web_socket_callback(self, message=None, error_state=None,
                                  closed_state=None, open_state=None):
         if message:
+            self.__is_alive = True
             self.__fetch_from_api()
             Logger.debug(f'Received message from socket. {message}')
         elif error_state:
+            self.__is_alive = False
             Logger.error(f'Received error from socket. {error_state}')
             Logger.info('Reconnecting to server....')
             self.__on_socket_retry = True
             sleep(delay)
             self.__start_web_socket()
         elif closed_state:
+            self.__is_alive = False
             Logger.error('Received close connection from socket.')
             Logger.info('Reconnecting to server....')
             self.__on_socket_retry = True
             sleep(delay)
             self.__start_web_socket()
         elif open_state:
+            self.__is_alive = True
             if self.__on_socket_retry:
                 self.__on_socket_retry = False
                 self.__fetch_from_api()
             Logger.debug('Received opened connection from socket.')
         else:
             Logger.error('Unknown Error inside the socket connection.')
+
+    def is_connected(self) -> bool:
+        """ Get the status of server-client connection
+
+        Returns: boolean indicating connection status
+        """
+        return self.__is_alive

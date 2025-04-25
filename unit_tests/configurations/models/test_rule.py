@@ -56,6 +56,17 @@ class MyTestCase(unittest.TestCase):
         }
         self.assertFalse(self.sut.evaluate_rule(client_attributes))
 
+    def test_evaluation_not_ends_with_string(self):
+        self.set_up_email('google.com', 'email', 'notEndsWith')
+        client_attributes = {
+            'email': 'tester@in.ibm.com'
+        }
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+        client_attributes = {
+            'email': 'tester@google.com'
+        }
+        self.assertFalse(self.sut.evaluate_rule(client_attributes))
+
     def test_evaluation_is(self):
         self.set_up_email("123", "creditValues", "is")
         client_attributes = {
@@ -99,8 +110,40 @@ class MyTestCase(unittest.TestCase):
         self.set_up_email(False, "creditValues", "is")
         self.assertTrue(self.sut.evaluate_rule(client_attributes))
 
+    def test_evaluation_is_not(self):
+        self.set_up_email("123", "creditValues", "isNot")
+        client_attributes = {
+            'creditValues': '1234'
+        }
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+
+        self.set_up_email("1234", "creditValues", "isNot")
+        client_attributes = {
+            'creditValues': 123
+        }
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+
+        client_attributes = {
+            'creditValues': 123
+        }
+        self.set_up_email(5123, "creditValues", "isNot")
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+
+        client_attributes = {
+            'creditValues': False
+        }
+        self.set_up_email(True, "creditValues", "isNot")
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+
     def test_evaluation_startswith(self):
         self.set_up_email('user1', 'email', 'startsWith')
+        client_attributes = {
+            'email': 'user1@gm.com'
+        }
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+
+    def test_evaluation_not_startswith(self):
+        self.set_up_email('user2', 'email', 'notStartsWith')
         client_attributes = {
             'email': 'user1@gm.com'
         }
@@ -115,6 +158,18 @@ class MyTestCase(unittest.TestCase):
 
         client_attributes = {
             'mobile': '+01xxxxxxxxxx'
+        }
+        self.assertFalse(self.sut.evaluate_rule(client_attributes))
+
+    def test_evaluation_not_contains(self):
+        self.set_up_email('+91', 'mobile', 'notContains')
+        client_attributes = {
+            'mobile': '+81xxxxxxxxxx'
+        }
+        self.assertTrue(self.sut.evaluate_rule(client_attributes))
+
+        client_attributes = {
+            'mobile': '+91xxxxxxxxxx'
         }
         self.assertFalse(self.sut.evaluate_rule(client_attributes))
 
