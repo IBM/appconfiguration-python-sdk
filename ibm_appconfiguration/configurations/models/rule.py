@@ -45,18 +45,30 @@ class Rule:
     def __ends_with(self, key, value) -> bool:
         return key.endswith(value)
 
+    def __not_ends_with(self, key, value) -> bool:
+        return not key.endswith(value)
+
     def __starts_with(self, key, value) -> bool:
         return key.startswith(value)
+
+    def __not_starts_with(self, key, value) -> bool:
+        return not key.startswith(value)
 
     def __contains(self, key, value) -> bool:
         return value in key
 
+    def __not_contains(self, key, value) -> bool:
+        return not value in key
+
     def __is(self, key, value) -> bool:
         if type(key) is type(value):
             return key == value
-        if str(key) == str(value):
-            return True
-        return False
+        return str(key) == str(value)
+
+    def __is_not(self, key, value) -> bool:
+        if type(key) is type(value):
+            return key != value
+        return str(key) != str(value)
 
     def __greater_than(self, key, value) -> bool:
 
@@ -102,9 +114,13 @@ class Rule:
 
         case_checker = {
             "endsWith": self.__ends_with,
+            "notEndsWith": self.__not_ends_with,
             "startsWith": self.__starts_with,
+            "notStartsWith": self.__not_starts_with,
             "contains": self.__contains,
+            "notContains": self.__not_contains,
             "is": self.__is,
+            "isNot": self.__is_not,
             "greaterThan": self.__greater_than,
             "lesserThan": self.__lesser_than,
             "greaterThanEquals": self.__greater_than_equals,
@@ -130,9 +146,17 @@ class Rule:
             key = entity_attributes.get(self.__attribute_name)
         else:
             return result
-        for i in range(0, len(self.__values)):
-            value = self.__values[i]
-            if self.__operator_check(key, value):
-                result = True
+
+        if self.__operator in ["isNot", "notContains", "notStartsWith", "notEndsWith"]:
+            result = True
+            for i in range(0, len(self.__values)):
+                value = self.__values[i]
+                if not self.__operator_check(key, value):
+                    result = False
+        else:
+            for i in range(0, len(self.__values)):
+                value = self.__values[i]
+                if self.__operator_check(key, value):
+                    result = True
 
         return result
