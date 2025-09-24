@@ -72,7 +72,7 @@ class MyTestCase(unittest.TestCase):
         sut1.enable_debug(True)
 
         FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user.json')
-        sut1.set_context("collectionId", "environmentId", configuration_file=FILE, live_config_update_enabled=False)
+        sut1.set_context("collection", "dev", configuration_file=FILE, live_config_update_enabled=False)
         time.sleep(2.5)
 
         self.assertEqual(len(sut1.get_features()), 3)

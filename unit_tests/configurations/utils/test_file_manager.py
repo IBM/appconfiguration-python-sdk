@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import unittest
 import os
 from ibm_appconfiguration.configurations.internal.utils.file_manager import FileManager
@@ -69,7 +69,7 @@ class MyTestCase(unittest.TestCase):
                 }
             ]
         }
-        self.assertTrue(FileManager.store_files(data, self.file_path))
+        self.assertTrue(FileManager.store_files(json.dumps(data), self.file_path))
 
         expected_data = FileManager.read_files(self.file_path)
 

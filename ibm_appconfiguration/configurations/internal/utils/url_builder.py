@@ -84,12 +84,12 @@ class URLBuilder:
                     cls.__iam_url = "https://iam.cloud.ibm.com"
                     cls.__web_socket_base = cls.__wss + region + cls.__base_url
 
-            cls.__config_path = '{0}{1}{2}/collections/{3}/{4}?environment_id={5}'.format(
+            cls.__config_path = '{0}{1}{2}/{3}?action=sdkConfig&collection_id={4}&environment_id={5}'.format(
                 cls.__service,
                 cls.__feature_path,
                 guid,
-                collection_id,
                 cls.__config,
+                collection_id,
                 environment_id)
             cls.__metering_path = '{0}{1}{2}/usage'.format(cls.__service,
                                                            cls.__events_path,

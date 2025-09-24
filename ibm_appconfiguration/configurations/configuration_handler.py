@@ -15,11 +15,14 @@
 """
 Internal class to handle the configuration.
 """
+import json
 import os
 from typing import Dict, List, Any
 from threading import Timer, Thread
 from ibm_appconfiguration.configurations.internal.common import config_messages, config_constants
+from ibm_appconfiguration.version import __version__
 from .internal.utils.logger import Logger
+from .internal.utils.parser import extract_configurations, format_config
 from .internal.utils.validators import Validators
 from .models import Feature
 from .models import SegmentRules
@@ -147,7 +150,9 @@ class ConfigurationHandler:
             self.__persistent_data = FileManager.read_files(
                 file_path=os.path.join(self.__persistent_cache_dir, 'appconfiguration.json'))
             if self.__persistent_data is not None:
-                self.__load_configurations(self.__persistent_data)
+                self.__load_configurations(
+                    extract_configurations(self.__persistent_data, self.__environment_id, self.__collection_id)
+                )
             if not os.access(self.__persistent_cache_dir, os.W_OK):
                 Logger.error(config_messages.ERROR_NO_WRITE_PERMISSION)
                 return
@@ -156,11 +161,13 @@ class ConfigurationHandler:
                 if self.__persistent_data is None or len(self.__persistent_data) == 0:
                     bootstrap_file_data = FileManager.read_files(file_path=self.__bootstrap_file)
                     if bootstrap_file_data is not None:
-                        self.__load_configurations(bootstrap_file_data)
+                        configurations = extract_configurations(bootstrap_file_data, self.__environment_id, self.__collection_id)
+                        self.__load_configurations(configurations)
+                        self.__write_to_persistent_storage(format_config(configurations, self.__environment_id, self.__collection_id),
+                            self.__persistent_cache_dir)
                     else:
                         Logger.error("Error reading bootstrap file data")
                         return
-                    self.__write_to_persistent_storage(bootstrap_file_data, self.__persistent_cache_dir)
                     if self.__configuration_update_listener and callable(self.__configuration_update_listener):
                         self.__configuration_update_listener()
                 else:
@@ -169,7 +176,9 @@ class ConfigurationHandler:
             else:
                 bootstrap_file_data = FileManager.read_files(file_path=self.__bootstrap_file)
                 if bootstrap_file_data is not None:
-                    self.__load_configurations(bootstrap_file_data)
+                    self.__load_configurations(
+                        extract_configurations(bootstrap_file_data, self.__environment_id, self.__collection_id)
+                    )
                 else:
                     Logger.error("Error reading bootstrap file data")
                     return
@@ -271,7 +280,8 @@ class ConfigurationHandler:
     def __start_web_socket(self):
         bearer_token = URLBuilder.get_iam_authenticator().token_manager.get_token()
         headers = {
-            'Authorization': 'Bearer ' + bearer_token
+            'Authorization': 'Bearer ' + bearer_token,
+            'User-Agent': '{0}/{1}'.format(config_constants.SDK_NAME, __version__)
         }
         if self.__socket:
             self.__socket.cancel()
@@ -478,8 +488,8 @@ class ConfigurationHandler:
                 Logger.debug(err)
         return rule_map
 
-    def __write_to_persistent_storage(self, json: dict, file_path: str):
-        FileManager.store_files(json, os.path.join(file_path, 'appconfiguration.json'))
+    def __write_to_persistent_storage(self, data: str, file_path: str):
+        FileManager.store_files(json.dumps(json.loads(data), indent=2), os.path.join(file_path, 'appconfiguration.json'))
 
     def __fetch_from_api(self):
         if self.__is_initialized:
@@ -506,8 +516,8 @@ class ConfigurationHandler:
                 Logger.info(config_messages.CONFIGURATIONS_FETCH_SUCCESS)
                 response_data = response.get_result()
                 try:
-                    response_data = dict(response_data)
-                    self.__load_configurations(response_data)  # load response to cache maps
+                    configurations = extract_configurations(json.dumps(response_data), self.__environment_id, self.__collection_id)
+                    self.__load_configurations(configurations)  # load response to cache maps
                     if self.__configuration_update_listener and callable(self.__configuration_update_listener):
                         self.__configuration_update_listener()
                     # we have already loaded the configurations to feature & property dicts.
@@ -515,7 +525,7 @@ class ConfigurationHandler:
                     # But the thread shouldn't be a daemon thread, because the writing should complete even if the main thread has terminated.
                     if self.__persistent_cache_dir:
                         file_write_thread = Thread(target=self.__write_to_persistent_storage,
-                                                   args=(response_data, self.__persistent_cache_dir,))
+                            args=(format_config(configurations, self.__environment_id, self.__collection_id), self.__persistent_cache_dir))
                         file_write_thread.start()
                 except Exception as exception:
                     Logger.error(f'error while while fetching {exception}')
