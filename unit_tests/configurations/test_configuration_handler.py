@@ -38,7 +38,7 @@ class MyTestCase(unittest.TestCase):
             'bootstrap_file': FILE,
             'live_config_update_enabled': False
         }
-        self.sut.set_context("collectionId", "environmentId", options)
+        self.sut.set_context("collection", "dev", options)
         self.sut.load_data()
         time.sleep(2.5)
 
@@ -48,34 +48,44 @@ class MyTestCase(unittest.TestCase):
     def test_load_from_web(self):
         Metering.get_instance().set_repeat_calls(False)
         mock_response = '''
-            {
-                "features": [
-                    {
-                        "name": "featurestring",
-                        "feature_id": "featurestring",
-                        "type": "STRING",
-                        "enabled_value": "Hello",
-                        "disabled_value": "Hi",
-                        "segment_rules": [],
-                        "enabled": true
-                    }
-                ],
-                "properties": [
-                    {
-                        "name": "numericproperty",
-                        "property_id": "numericproperty",
-                        "tags": "",
-                        "type": "NUMERIC",
-                        "value": 30,
-                        "segment_rules": [],
-                        "created_time": "2021-05-23T08:00:56Z",
-                        "updated_time": "2021-05-23T08:00:56Z"
-                    }
-                ],
-                "segments": []
-            }
+        {
+            "environments": [
+                {
+                    "name": "Dev",
+                    "environment_id": "dev",
+                    "features": [
+                        {
+                            "name": "featurestring",
+                            "feature_id": "featurestring",
+                            "type": "STRING",
+                            "enabled_value": "Hello",
+                            "disabled_value": "Hi",
+                            "segment_rules": [],
+                            "enabled": true
+                        }
+                    ],
+                    "properties": [
+                        {
+                            "name": "numericproperty",
+                            "property_id": "numericproperty",
+                            "tags": "",
+                            "type": "NUMERIC",
+                            "value": 30,
+                            "segment_rules": []
+                        }
+                    ]
+                }
+            ],
+            "collections": [
+                {
+                    "name": "Collection",
+                    "collection_id": "collection"
+                }
+            ],
+            "segments": []
+        }
         '''
-        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection&environment_id=dev'
         self.responses.add(responses.GET,
                            url,
                            body=mock_response,
@@ -87,7 +97,7 @@ class MyTestCase(unittest.TestCase):
             'bootstrap_file': None,
             'live_config_update_enabled': True
         }
-        self.sut.set_context("collection_id", "environment_id", options)
+        self.sut.set_context("collection", "dev", options)
         self.sut.load_data()
         features = self.sut.get_features()
         self.assertEqual(len(features), 1)
@@ -178,54 +188,63 @@ class MyTestCase(unittest.TestCase):
         Metering.get_instance().set_repeat_calls(False)
         mock_response = '''
             {
-                "features": [
+                "environments": [
                     {
-                        "name": "yamlFeature",
-                        "feature_id": "yamlFeature",
-                        "type": "STRING",
-                        "format": "YAML",
-                        "enabled_value": "value: enabled",
-                        "disabled_value": "value: disabled",
-                        "segment_rules": [
+                        "name": "Dev",
+                        "environment_id": "dev",
+                        "features": [
                             {
-                                "rules": [
+                                "name": "yamlFeature",
+                                "feature_id": "yamlFeature",
+                                "type": "STRING",
+                                "format": "YAML",
+                                "enabled_value": "value: enabled",
+                                "disabled_value": "value: disabled",
+                                "segment_rules": [
                                     {
-                                        "segments": [
-                                            "reqbody"
-                                        ]
+                                        "rules": [
+                                            {
+                                                "segments": [
+                                                    "reqbody"
+                                                ]
+                                            }
+                                        ],
+                                        "value": "value: targeted",
+                                        "order": 1
                                     }
                                 ],
-                                "value": "value: targeted",
-                                "order": 1
+                                "enabled": true
                             }
                         ],
-                        "enabled": true
+                        "properties": [
+                            {
+                                "name": "yamlProperty",
+                                "property_id": "yamlProperty",
+                                "tags": "",
+                                "type": "STRING",
+                                "format": "YAML",
+                                "value": "value: enabled",
+                                "segment_rules": [
+                                    {
+                                        "rules": [
+                                            {
+                                                "segments": [
+                                                    "reqbody"
+                                                ]
+                                            }
+                                        ],
+                                        "value": "value: targeted",
+                                        "order": 1
+                                    }
+                                ]                                
+                            }
+                        ]
                     }
                 ],
-                "properties": [
+                "collections": [
                     {
-                        "name": "yamlProperty",
-                        "property_id": "yamlProperty",
-                        "tags": "",
-                        "type": "STRING",
-                        "format": "YAML",
-                        "value": "value: enabled",
-                        "segment_rules": [
-                            {
-                                "rules": [
-                                    {
-                                        "segments": [
-                                            "reqbody"
-                                        ]
-                                    }
-                                ],
-                                "value": "value: targeted",
-                                "order": 1
-                            }
-                        
-                        ],
-                        "created_time": "2021-05-23T08:00:56Z",
-                        "updated_time": "2021-05-23T08:00:56Z"
+                        "name": "Collection",
+                        "collection_id": "collection"
                     }
                 ],
                 "segments": [
@@ -245,7 +264,7 @@ class MyTestCase(unittest.TestCase):
                 ]
             }
         '''
-        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection&environment_id=dev'
         self.responses.add(responses.GET,
                            url,
                            body=mock_response,
@@ -257,7 +276,7 @@ class MyTestCase(unittest.TestCase):
             'bootstrap_file': None,
             'live_config_update_enabled': True
         }
-        self.sut.set_context("collection_id", "environment_id", options)
+        self.sut.set_context("collection", "dev", options)
         self.sut.load_data()
         features = self.sut.get_features()
         properties = self.sut.get_properties()

@@ -18,8 +18,7 @@ file based cache of the SDK.
 """
 
 import fcntl
-import json
-from typing import Optional, Any
+from typing import Optional
 
 from .logger import Logger
 
@@ -28,17 +27,17 @@ class FileManager:
     """FileManager to handle the cache"""
 
     @classmethod
-    def store_files(cls, json_data: {}, file_path: str) -> bool:
+    def store_files(cls, data: str, file_path: str) -> bool:
         """Store the file
 
         Args:
-            json_data: Data to be stored.
+            data: Data to be stored.
             file_path: File path for the cache.
         """
         try:
             with open(file_path, 'w') as cache:
                 fcntl.flock(cache, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                json.dump(json_data, cache)
+                cache.write(data)
                 fcntl.flock(cache, fcntl.LOCK_UN)
                 return True
         except Exception as err:
@@ -46,7 +45,7 @@ class FileManager:
             return False
 
     @classmethod
-    def read_files(cls, file_path: str) -> Optional[Any]:
+    def read_files(cls, file_path: str) -> Optional[str]:
         """
         Read the data from the given path.
 
@@ -59,9 +58,9 @@ class FileManager:
         try:
             with open(file_path, 'r') as file:
                 fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                data = json.load(file)
+                data = file.read()
                 fcntl.flock(file, fcntl.LOCK_UN)
-                return data
+                return data if len(data) > 0 else None
         except Exception as err:
             Logger.error(err)
             return None

@@ -31,7 +31,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(URLBuilder.get_base_url(), 'https://region.apprapp.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_iam_url(), 'https://iam.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_config_path(),
-                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+                         '/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection_id&environment_id=environment_id')
         self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
         self.assertEqual(URLBuilder.get_web_socket_url(),
                          'wss://region.apprapp.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
@@ -48,7 +48,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(URLBuilder.get_base_url(), 'https://private.region.apprapp.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_iam_url(), 'https://private.iam.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_config_path(),
-                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+                         '/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection_id&environment_id=environment_id')
         self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
         self.assertEqual(URLBuilder.get_web_socket_url(),
                          'wss://private.region.apprapp.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
@@ -65,7 +65,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(URLBuilder.get_base_url(), 'https://region.apprapp.test.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_iam_url(), 'https://iam.test.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_config_path(),
-                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+                         '/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection_id&environment_id=environment_id')
         self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
         self.assertEqual(URLBuilder.get_web_socket_url(),
                          'wss://region.apprapp.test.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')
@@ -82,7 +82,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(URLBuilder.get_base_url(), 'https://private.region.apprapp.test.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_iam_url(), 'https://private.iam.test.cloud.ibm.com')
         self.assertEqual(URLBuilder.get_config_path(),
-                         '/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id')
+                         '/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection_id&environment_id=environment_id')
         self.assertEqual(URLBuilder.get_metering_path(), '/apprapp/events/v1/instances/guid/usage')
         self.assertEqual(URLBuilder.get_web_socket_url(),
                          'wss://private.region.apprapp.test.cloud.ibm.com/apprapp/wsfeature?instance_id=guid&collection_id=collection_id&environment_id=environment_id')

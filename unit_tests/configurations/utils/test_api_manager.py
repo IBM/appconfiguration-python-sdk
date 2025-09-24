@@ -41,8 +41,19 @@ class MyTestCase(unittest.TestCase):
         self.api_manager = APIManager.get_instance()
 
     def test_get_call(self):
-        mock_response = '{ "features": [], "properties": [], "segments": []}'
-        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/collections/collection_id/config?environment_id=environment_id'
+        mock_response = '''
+        {
+            "environments": [
+                {
+                    "features": [], 
+                    "properties": []
+                }
+            ],
+            "collections": [],
+            "segments": []
+        }
+        '''
+        url = 'https://region.apprapp.cloud.ibm.com/apprapp/feature/v1/instances/guid/config?action=sdkConfig&collection_id=collection_id&environment_id=environment_id'
         self.responses.add(responses.GET,
                            url,
                            body=mock_response,
@@ -50,7 +61,7 @@ class MyTestCase(unittest.TestCase):
                            status=200)
 
         resp = self.api_manager.prepare_api_request(method="GET", url=URLBuilder.get_config_path())
-        self.assertEqual(resp.get_status_code(), 200)
+        self.assertEqual(200, resp.get_status_code())
 
         try:
             response_data = dict(resp.get_result())
