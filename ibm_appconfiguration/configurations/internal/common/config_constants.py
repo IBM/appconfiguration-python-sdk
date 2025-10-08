@@ -24,3 +24,5 @@ MAX_NUMBER_OF_RETRIES = 3
 DEFAULT_ROLLOUT_PERCENTAGE = '$default'
 DEFAULT_FEATURE_VALUE = '$default'
 DEFAULT_PROPERTY_VALUE = '$default'
+WEBSOCKET_RECONNECT_DELAY = 15  # Constant delay between reconnection attempts for server errors
+CUSTOM_SOCKET_CLOSE_REASON_CODE = 4001

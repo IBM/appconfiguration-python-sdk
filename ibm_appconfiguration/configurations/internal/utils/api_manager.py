@@ -19,6 +19,8 @@ import json as json_import
 from typing import Optional, Union
 from ibm_cloud_sdk_core import BaseService, DetailedResponse, ApiException
 from requests.exceptions import RetryError
+
+from .logger import Logger
 from .url_builder import URLBuilder
 from ibm_appconfiguration.version import __version__
 from ..common import config_constants
@@ -99,3 +101,26 @@ class APIManager(BaseService):
         if isinstance(dictionary, dict):
             return {k: v for (k, v) in dictionary.items() if v is not None}
         return dictionary
+
+    def get_websocket_headers(self) -> dict:
+        """Get fresh headers for WebSocket connection with current authentication token.
+        This method retrieves a fresh authentication token and returns headers
+        suitable for WebSocket connections. It should be called each time a
+        WebSocket connection is established to ensure the token is valid.
+
+        Returns:
+            dict: Headers dictionary containing Authorization and User-Agent
+
+        Raises:
+            Exception: If token retrieval fails, the exception is propagated
+                      to allow the caller to determine if reconnection should be attempted
+        """
+        try:
+            bearer_token = URLBuilder.get_iam_authenticator().token_manager.get_token()
+            return {
+                'Authorization': 'Bearer ' + bearer_token,
+                'User-Agent': '{0}/{1}'.format(config_constants.SDK_NAME, __version__)
+            }
+        except Exception as e:
+            Logger.error(f"Failed to retrieve IAM token for WebSocket: {str(e)}")
+            raise

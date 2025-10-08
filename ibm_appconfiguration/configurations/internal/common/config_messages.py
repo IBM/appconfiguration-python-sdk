@@ -35,7 +35,6 @@ CONFIGURATION_HANDLER_INIT_ERROR = 'Invalid action in ConfigurationHandler. This
 CONFIGURATION_HANDLER_METHOD_ERROR = "Invalid action in ConfigurationHandler. Should be a method/function"
 SINGLETON_EXCEPTION = "class must be initialized using the get_instance() method."
 FEATURE_INVALID = "Invalid feature_id - "
-NO_INTERNET_CONNECTION_ERROR = 'No connection to internet. Please re-connect.'
 PROPERTY_INVALID = "Invalid property_id - "
 CONFIGURATIONS_FETCH_SUCCESS = "Successfully fetched the configurations."
 RETRY_AFTER_TWO_MINUTES = "Failed to fetch the configurations. Retrying after 2 minutes."

@@ -29,11 +29,14 @@ class MyTestCase(unittest.TestCase):
         self.expected_closed_state = closed_state
         self.expected_open_state = open_state
 
+    def headers_provider(self):
+        return {}
+
     def test_socket(self):
         self.__socket = Socket()
         self.__socket.setup(
             url="ws://testurl.com",
-            headers=[],
+            headers_provider=self.headers_provider,
             callback=self.callback
         )
 

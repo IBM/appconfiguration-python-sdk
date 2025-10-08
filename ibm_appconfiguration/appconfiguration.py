@@ -89,7 +89,6 @@ class AppConfiguration:
         self.__guid = ''
         self.__is_initialized = False
         self.__is_initialized_configuration = False
-        self.__is_loading = False
         AppConfiguration.__instance = self
 
     def use_private_endpoint(self, use_private_endpoint_param: bool):
@@ -131,7 +130,6 @@ class AppConfiguration:
         self.__region = region
         self.__guid = guid
         self.__is_initialized = True
-        self.__is_loading = False
         self.__setup_configuration_handler()
 
     def get_region(self) -> str:
@@ -216,27 +214,13 @@ class AppConfiguration:
         self.__is_initialized_configuration = True
 
         self.__configuration_handler_instance.set_context(collection_id, environment_id, default_options)
-        self.__load_data_now()
-
-    def fetch_configurations(self):
-        """Fetch the latest configurations"""
-        if self.__is_initialized and self.__is_initialized_configuration:
-            self.__load_data_now()
-        else:
-            Logger.error(config_messages.COLLECTION_INIT_ERROR)
+        self.__configuration_handler_instance.load_data()
 
     def __setup_configuration_handler(self):
         self.__configuration_handler_instance = ConfigurationHandler.get_instance()
         self.__configuration_handler_instance.init(region=self.__region, guid=self.__guid, apikey=self.__apikey,
                                                    override_service_url=self.__override_service_url,
                                                    use_private_endpoint=self.__use_private_endpoint)
-
-    def __load_data_now(self):
-        if self.__is_loading:
-            return
-        self.__is_loading = True
-        self.__configuration_handler_instance.load_data()
-        self.__is_loading = False
 
     def register_configuration_update_listener(self, listener):
         """Register a listener for the Configuration changes.
