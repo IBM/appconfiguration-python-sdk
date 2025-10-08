@@ -20,7 +20,6 @@ import os
 from typing import Dict, List, Any
 from threading import Timer, Thread
 from ibm_appconfiguration.configurations.internal.common import config_messages, config_constants
-from ibm_appconfiguration.version import __version__
 from .internal.utils.logger import Logger
 from .internal.utils.parser import extract_configurations, format_config
 from .internal.utils.validators import Validators
@@ -33,24 +32,12 @@ from .internal.utils.compute_percentage import get_normalized_value
 from .internal.utils.metering import Metering
 from .internal.utils.socket import Socket
 from .internal.utils.url_builder import URLBuilder
-from .internal.utils.connectivity import Connectivity
 from .internal.utils.api_manager import APIManager
-import sys
-from time import sleep
-
-# Server max time out is assumed to be 1 week = 604800 seconds = 40320*15
-sys.setrecursionlimit(40320)
-
-# delay between each web socket connection retry
-delay = 15
 
 
 class ConfigurationHandler:
     """Internal class to handle the configuration"""
     __instance = None
-
-    # variable to keep track of server-client connection status
-    __is_alive = False
 
     @staticmethod
     def get_instance():
@@ -83,8 +70,6 @@ class ConfigurationHandler:
         self.__on_socket_retry = False
         self.__override_service_url = None
         self.__socket = None
-        self.__connectivity = None
-        self.__is_network_connected = True
         self.__api_manager = None
         self.__use_private_endpoint = False
 
@@ -139,7 +124,6 @@ class ConfigurationHandler:
         self.__bootstrap_file = options['bootstrap_file']
         self.__persistent_cache_dir = options['persistent_cache_dir']
         self.__is_initialized = True
-        self.__check_network()
 
     def load_data(self):
         """Load the configuration data"""
@@ -202,28 +186,6 @@ class ConfigurationHandler:
         else:
             Logger.error(config_messages.CONFIGURATION_HANDLER_METHOD_ERROR)
 
-    def __check_network(self):
-        if self.__live_config_update_enabled:
-            if self.__connectivity is None:
-                self.__connectivity = Connectivity.get_instance()
-                self.__connectivity.add_connectivity_listener(self.__network_listener)
-                self.__connectivity.check_connection()
-        else:
-            self.__connectivity = None
-
-    def __network_listener(self, is_connected: bool):
-        if not self.__live_config_update_enabled:
-            self.__connectivity = None
-            return
-
-        if is_connected:
-            if not self.__is_network_connected:
-                self.__is_network_connected = True
-                self.__fetch_config_data()
-        else:
-            Logger.debug(config_messages.NO_INTERNET_CONNECTION_ERROR)
-            self.__is_network_connected = False
-
     def get_properties(self) -> Dict[str, Property]:
         """Get the list of Property objects
 
@@ -272,25 +234,15 @@ class ConfigurationHandler:
         if self.__is_initialized:
             self.__fetch_from_api()
             self.__on_socket_retry = False
-            # Socket connection is a long-running background task, and is safe to run as daemon threads
-            config_thread = Thread(target=self.__start_web_socket, args=())
-            config_thread.daemon = True
-            config_thread.start()
+            self.__start_web_socket()
 
     def __start_web_socket(self):
-        bearer_token = URLBuilder.get_iam_authenticator().token_manager.get_token()
-        headers = {
-            'Authorization': 'Bearer ' + bearer_token,
-            'User-Agent': '{0}/{1}'.format(config_constants.SDK_NAME, __version__)
-        }
-        if self.__socket:
-            self.__socket.cancel()
-            self.__socket = None
+
         self.__socket = Socket()
         self.__socket.setup(
             url=URLBuilder.get_web_socket_url(),
-            headers=headers,
-            callback=self.__on_web_socket_callback
+            headers_provider=self.__api_manager.get_websocket_headers,
+            callback=self.__handle_socket_events
         )
 
     def __load_configurations(self, data: dict):
@@ -548,32 +500,20 @@ class ConfigurationHandler:
         else:
             Logger.debug(config_messages.CONFIGURATION_HANDLER_INIT_ERROR)
 
-    def __on_web_socket_callback(self, message=None, error_state=None,
-                                 closed_state=None, open_state=None):
+    def __handle_socket_events(self, message=None, error_state=None,
+                               closed_state=None, open_state=None):
         if message:
-            self.__is_alive = True
+            Logger.debug(f'Received message from websocket. {message}')
             self.__fetch_from_api()
-            Logger.debug(f'Received message from socket. {message}')
         elif error_state:
-            self.__is_alive = False
-            Logger.error(f'Received error from socket. {error_state}')
-            Logger.info('Reconnecting to server....')
             self.__on_socket_retry = True
-            sleep(delay)
-            self.__start_web_socket()
         elif closed_state:
-            self.__is_alive = False
-            Logger.error('Received close connection from socket.')
-            Logger.info('Reconnecting to server....')
             self.__on_socket_retry = True
-            sleep(delay)
-            self.__start_web_socket()
         elif open_state:
-            self.__is_alive = True
+            Logger.debug('Received opened connection from websocket.')
             if self.__on_socket_retry:
                 self.__on_socket_retry = False
                 self.__fetch_from_api()
-            Logger.debug('Received opened connection from socket.')
         else:
             Logger.error('Unknown Error inside the socket connection.')
 
@@ -582,4 +522,4 @@ class ConfigurationHandler:
 
         Returns: boolean indicating connection status
         """
-        return self.__is_alive
+        return self.__socket.is_connected()

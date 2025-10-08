@@ -51,10 +51,6 @@ class MyTestCase(unittest.TestCase):
         sut1.set_context("", "")
         self.assertIsNotNone(sut1.get_apikey())
 
-    def test_configuration_fetch_feature_data(self):
-        sut1 = AppConfiguration.get_instance()
-        sut1.fetch_configurations()
-
     def response(self):
         print('Get your Feature value NOW')
 

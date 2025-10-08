@@ -321,14 +321,6 @@ def configuration_update(self):
 appconfig_client.register_configuration_update_listener(configuration_update)
 ```
 
-## Fetch latest data
-
-Fetch the latest configuration data. 
-
-```py
-appconfig_client.fetch_configurations()
-```
-
 ## Enable debugger (Optional)
 
 Use this method to enable/disable the logging in SDK.
