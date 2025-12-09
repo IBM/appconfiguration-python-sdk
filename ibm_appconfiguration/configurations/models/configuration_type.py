@@ -24,3 +24,4 @@ class ConfigurationType(enum.Enum):
     NUMERIC = 'NUMERIC'
     STRING = 'STRING'
     BOOLEAN = 'BOOLEAN'
+    SECRETREF = 'SECRETREF'
