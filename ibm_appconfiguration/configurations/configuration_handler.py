@@ -33,6 +33,7 @@ from .internal.utils.metering import Metering
 from .internal.utils.socket import Socket
 from .internal.utils.url_builder import URLBuilder
 from .internal.utils.api_manager import APIManager
+from .internal.utils.rollout_utils import parse_rollout_configuration_phases, get_current_rollout_percentage
 
 
 class ConfigurationHandler:
@@ -61,6 +62,7 @@ class ConfigurationHandler:
         self.__feature_map = dict()
         self.__property_map = dict()
         self.__segment_map = dict()
+        self.__rollout_config_map = dict()
         self.__live_config_update_enabled = True
         ConfigurationHandler.__instance = self
         self.__retry_interval = 120
@@ -97,6 +99,7 @@ class ConfigurationHandler:
         self.__feature_map = dict()
         self.__property_map = dict()
         self.__segment_map = dict()
+        self.__rollout_config_map = dict()
 
     def set_context(self, collection_id: str, environment_id: str, options: dict):
         """Set the context for the configuration
@@ -249,11 +252,33 @@ class ConfigurationHandler:
         if len(data) != 0:
             if 'features' in data:
                 self.__feature_map = dict()
+                self.__rollout_config_map = dict()
                 try:
                     all_feature_list: List = data.get('features')
                     for i, feature in enumerate(all_feature_list):
                         feature_obj = Feature(feature)
                         self.__feature_map[feature_obj.get_feature_id()] = feature_obj
+                        
+                        # Parse feature-level progressive rollout
+                        if feature_obj.get_rollout_configuration() is not None:
+                            rollout_config = feature_obj.get_rollout_configuration()
+                            if rollout_config:
+                                rollout_map = parse_rollout_configuration_phases(rollout_config)
+                                if rollout_map:
+                                    self.__rollout_config_map[feature_obj.get_feature_id()] = rollout_map
+                        
+                        # Parse segment-level progressive rollout
+                        segment_rules = feature_obj.get_segment_rules()
+                        if segment_rules and isinstance(segment_rules, list):
+                            for segment_rule in segment_rules:
+                                segment_rule_obj = SegmentRules(segment_rule)
+                                if segment_rule_obj.get_rollout_configuration() is not None:
+                                    rollout_config = segment_rule_obj.get_rollout_configuration()
+                                    if rollout_config and segment_rule_obj.get_rule_id():
+                                        rollout_map = parse_rollout_configuration_phases(rollout_config)
+                                        if rollout_map:
+                                            key = feature_obj.get_feature_id() + config_constants.DELIMITER + segment_rule_obj.get_rule_id()
+                                            self.__rollout_config_map[key] = rollout_map
                 except Exception as err:
                     Logger.debug(err)
 
@@ -359,8 +384,21 @@ class ConfigurationHandler:
                     if feature.get_feature_data_format() == "YAML" and type(result_dict['value']) == str:
                         return Validators.validate_yaml_string(result_dict['value']), result_dict['is_enabled']
                     return result_dict['value'], result_dict['is_enabled']
-                if feature.get_rollout_percentage() == 100 or (get_normalized_value(
-                        entity_id + ":" + feature.get_feature_id()) < feature.get_rollout_percentage()):
+
+                # Check feature-level rollout
+                rollout_percentage = None
+                if feature.get_rollout_configuration() is not None:
+                    rollout_map = self.__rollout_config_map.get(feature.get_feature_id())
+                    if rollout_map:
+                        entity_id += feature.get_rollout_configuration().get('start_at')
+                        rollout_percentage = get_current_rollout_percentage(rollout_map)
+                    else:
+                        rollout_percentage = 0
+                else:
+                    rollout_percentage = feature.get_rollout_percentage() if feature.get_rollout_percentage() is not None else 100
+
+                if rollout_percentage == 100 or (get_normalized_value(
+                        entity_id + ":" + feature.get_feature_id()) < rollout_percentage):
                     return feature.get_enabled_value(), True
                 return feature.get_disabled_value(), False
             return feature.get_disabled_value(), False
@@ -391,7 +429,35 @@ class ConfigurationHandler:
                                 result_dict['evaluated_segment_id'] = segment_key
                                 if feature is not None:
                                     # evaluate_rules was called for feature flag
-                                    segment_rollout_percentage = feature.get_rollout_percentage() if segment_rule.get_rollout_percentage() == config_constants.DEFAULT_ROLLOUT_PERCENTAGE else segment_rule.get_rollout_percentage()
+                                    segment_rollout_percentage = None
+                                    
+                                    # Check if segment rule has progressive rollout
+                                    if segment_rule.get_rollout_configuration() is not None or segment_rule.get_rollout_type() == config_constants.PROGRESSIVE:
+                                        # Determine which rollout map to use
+                                        if segment_rule.get_rollout_percentage() == config_constants.DEFAULT_ROLLOUT_PERCENTAGE:
+                                            # Use feature-level rollout
+                                            rollout_map = self.__rollout_config_map.get(feature.get_feature_id())
+                                        else:
+                                            # Use segment-level rollout
+                                            rule_id = segment_rule.get_rule_id()
+                                            if rule_id:
+                                                key = feature.get_feature_id() + config_constants.DELIMITER + rule_id
+                                                rollout_map = self.__rollout_config_map.get(key)
+                                            else:
+                                                rollout_map = None
+                                        
+                                        if rollout_map:
+                                            entity_id += segment_rule.get_rollout_configuration().get('start_at')
+                                            segment_rollout_percentage = get_current_rollout_percentage(rollout_map)
+                                        else:
+                                            segment_rollout_percentage = 0
+                                    else:
+                                        # Use manual rollout percentage
+                                        if segment_rule.get_rollout_percentage() == config_constants.DEFAULT_ROLLOUT_PERCENTAGE:
+                                            segment_rollout_percentage = feature.get_rollout_percentage() if feature.get_rollout_percentage() is not None else 100
+                                        else:
+                                            segment_rollout_percentage = segment_rule.get_rollout_percentage() if segment_rule.get_rollout_percentage() is not None else 100
+                                    
                                     if segment_rollout_percentage == 100 or (get_normalized_value(
                                             entity_id + ":" + feature.get_feature_id())) < segment_rollout_percentage:
                                         if segment_rule.get_value() == config_constants.DEFAULT_FEATURE_VALUE:
@@ -413,8 +479,20 @@ class ConfigurationHandler:
                         Logger.debug(err)
 
         if feature is not None:
-            if feature.get_rollout_percentage() == 100 or get_normalized_value(
-                    entity_id + ":" + feature.get_feature_id()) < feature.get_rollout_percentage():
+            # Check feature-level rollout
+            rollout_percentage = None
+            if feature.get_rollout_configuration() is not None:
+                rollout_map = self.__rollout_config_map.get(feature.get_feature_id())
+                if rollout_map:
+                    entity_id += feature.get_rollout_configuration().get('start_at')
+                    rollout_percentage = get_current_rollout_percentage(rollout_map)
+                else:
+                    rollout_percentage = 0
+            else:
+                rollout_percentage = feature.get_rollout_percentage() if feature.get_rollout_percentage() is not None else 100
+            
+            if rollout_percentage == 100 or get_normalized_value(
+                    entity_id + ":" + feature.get_feature_id()) < rollout_percentage:
                 result_dict['value'] = feature.get_enabled_value()
                 result_dict['is_enabled'] = True
             else:
