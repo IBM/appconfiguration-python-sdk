@@ -18,7 +18,7 @@ This file defines the constants used by the SDK.
 
 DEFAULT_SEGMENT_ID = '$$null$$'
 DEFAULT_ENTITY_ID = '$$null$$'
-DEFAULT_USAGE_LIMIT = 10
+DEFAULT_USAGE_LIMIT = 30
 SDK_NAME = "appconfiguration-python-sdk"
 MAX_NUMBER_OF_RETRIES = 3
 DEFAULT_ROLLOUT_PERCENTAGE = '$default'
@@ -26,3 +26,7 @@ DEFAULT_FEATURE_VALUE = '$default'
 DEFAULT_PROPERTY_VALUE = '$default'
 WEBSOCKET_RECONNECT_DELAY = 15  # Constant delay between reconnection attempts for server errors
 CUSTOM_SOCKET_CLOSE_REASON_CODE = 4001
+
+MANUAL = 'MANUAL'
+PROGRESSIVE = 'PROGRESSIVE'
+DELIMITER = '\u001F'

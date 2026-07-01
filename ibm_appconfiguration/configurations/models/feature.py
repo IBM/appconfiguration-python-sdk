@@ -20,6 +20,7 @@ from typing import Any
 from ..internal.utils.logger import Logger
 from ..internal.utils.validators import Validators
 from .configuration_type import ConfigurationType
+from ..internal.common import config_constants
 
 
 class Feature:
@@ -39,7 +40,13 @@ class Feature:
         self.__format = feature_list.get('format', None)
         self.__disabled_value = feature_list.get('disabled_value', object)
         self.__enabled_value = feature_list.get('enabled_value', object)
-        self.__rollout_percentage = feature_list.get('rollout_percentage', 100)
+        self.__rollout_type = feature_list.get('rollout_type', config_constants.MANUAL)
+        if feature_list.get('rollout_configuration', None) is not None:
+            self.__rollout_configuration = feature_list.get('rollout_configuration')
+            self.__rollout_percentage = None
+        else:
+            self.__rollout_percentage = feature_list.get('rollout_percentage', 100)
+            self.__rollout_configuration = None
 
     def get_feature_name(self) -> str:
         """Get the Feature name"""
@@ -74,6 +81,14 @@ class Feature:
     def get_rollout_percentage(self) -> int:
         """Get the Feature flag's rollout percentage"""
         return self.__rollout_percentage
+    
+    def get_rollout_type(self) -> str:
+        """Get the Feature flag's rollout type"""
+        return self.__rollout_type
+    
+    def get_rollout_configuration(self) -> Any:
+        """Get the Feature flag's rollout configuration"""
+        return self.__rollout_configuration
 
     def is_enabled(self) -> bool:
         """
