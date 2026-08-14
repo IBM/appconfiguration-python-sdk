@@ -58,4 +58,5 @@ class Segment:
                     return False
             except Exception as exception:
                 Logger.debug(f'Invalid action in Segment class, {exception}')
+                return False
         return True
