@@ -47,6 +47,8 @@ class Feature:
         else:
             self.__rollout_percentage = feature_list.get('rollout_percentage', 100)
             self.__rollout_configuration = None
+        self.__rollout_id = feature_list.get('rollout_id', None)
+        self.__metric_map = feature_list.get('metric_map', {})
 
     def get_feature_name(self) -> str:
         """Get the Feature name"""
@@ -81,11 +83,11 @@ class Feature:
     def get_rollout_percentage(self) -> int:
         """Get the Feature flag's rollout percentage"""
         return self.__rollout_percentage
-    
+
     def get_rollout_type(self) -> str:
         """Get the Feature flag's rollout type"""
         return self.__rollout_type
-    
+
     def get_rollout_configuration(self) -> Any:
         """Get the Feature flag's rollout configuration"""
         return self.__rollout_configuration
@@ -121,7 +123,7 @@ class Feature:
             Returns one of the Enabled/Disabled/Overridden value based on the evaluation.
             The data type of returned value matches that of feature flag.
         """
-        if not entity_id or entity_id == "":
+        if not isinstance(entity_id, str) or entity_id.strip() == '':
             Logger.error("Feature flag evaluation: Invalid entity_id passed to get_current_value")
             return None
         from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
@@ -129,3 +131,63 @@ class Feature:
         value, __ = feature_handler.feature_evaluation(feature=self, is_enabled=self.__enabled, entity_id=entity_id,
                                                        entity_attributes=entity_attributes)
         return value
+
+    def get_rollout_id(self) -> str:
+        """Get the rollout id for this feature if guarded is configured for this flag"""
+        return self.__rollout_id if self.__rollout_id is not None else ''
+
+    def get_metric_map(self) -> dict[str, list[dict[str, str]]]:
+        """Get the metric map for this feature"""
+        return self.__metric_map
+
+    def track(self, event_key, entity_id):
+        if not isinstance(event_key, str) or event_key.strip() == '':
+            Logger.error("track: eventKey must be a non-empty string")
+            return
+        if not isinstance(entity_id, str) or entity_id.strip() == '':
+            Logger.error("track: entityId must be a non-empty string")
+            return
+
+        resolved_metric_map = None
+        if self.__segment_rules:
+            for rule in self.__segment_rules:
+                rule_metric_map = rule.get('metric_map') if isinstance(rule, dict) else getattr(rule, 'metric_map', None)
+                if rule_metric_map and event_key in rule_metric_map:
+                    resolved_metric_map = rule_metric_map
+        if resolved_metric_map is None:
+            resolved_metric_map = self.get_metric_map()
+        if resolved_metric_map is None or event_key not in resolved_metric_map:
+            Logger.warning(f'The event key:{event_key} was not found for this feature:{self.get_feature_id()}')
+            return
+
+        feature_id = self.get_feature_id()
+        rollout_id = None
+        metrics = resolved_metric_map[event_key]
+        rollout_percentage = 0
+
+        if self.get_rollout_type() == config_constants.GUARDED:
+            # check feature level guarded rollout
+            rollout_id = self.get_rollout_id()
+            rollout_percentage = self.get_rollout_percentage()
+        else:
+            # check segment_level guarded rollout
+            for segment_rule in self.get_segment_rules():
+                if segment_rule.get('rollout_type', '') == config_constants.GUARDED:
+                    rollout_id = segment_rule.get('rollout_id', '')
+                    if segment_rule.get('rollout_percentage') == config_constants.DEFAULT_ROLLOUT_PERCENTAGE:
+                        rollout_percentage = self.get_rollout_percentage()
+                    else:
+                        rollout_percentage = int(segment_rule.get('rollout_percentage'))
+
+        if rollout_id is None:
+            Logger.warning("This feature or any of it's rules or not configured for guarded rollout")
+            return
+        from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
+        ConfigurationHandler.get_instance().add_guarded_metric_entry(
+            entity_id,
+            feature_id,
+            rollout_id,
+            event_key,
+            metrics,
+            rollout_percentage
+        )

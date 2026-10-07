@@ -291,3 +291,12 @@ class AppConfiguration:
         if self.__configuration_handler_instance is None:
             return False
         return self.__configuration_handler_instance.is_connected()
+
+    def flush_records(self):
+        """Immediately sends all pending analytics data (guarded rollout
+        evaluations and metric events) to the App Configuration service,
+        without waiting for the next scheduled flush. Safe to call at any
+        time, including on shutdown.
+        """
+        if self.__is_initialized and self.__is_initialized_configuration:
+            self.__configuration_handler_instance.flush_analytics()

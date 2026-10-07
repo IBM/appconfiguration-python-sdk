@@ -20,6 +20,8 @@ import os
 from typing import Dict, List, Any
 from threading import Timer, Thread
 from ibm_appconfiguration.configurations.internal.common import config_messages, config_constants
+from .internal.utils.analytics import Analytics
+from .internal.utils.analytics_record import EventType
 from .internal.utils.logger import Logger
 from .internal.utils.parser import extract_configurations, format_config
 from .internal.utils.validators import Validators
@@ -122,6 +124,10 @@ class ConfigurationHandler:
                                            override_service_url=self.__override_service_url,
                                            use_private_endpoint=self.__use_private_endpoint)
         Metering.get_instance().set_metering_url(URLBuilder.get_metering_path())
+        analytics = Analytics.get_instance()
+        analytics.set_context(environment_id=environment_id, collection_id=collection_id)
+        analytics.set_analytics_url(URLBuilder.get_analytics_path())
+        analytics.start()
         self.__api_manager = APIManager.get_instance()
         self.__live_config_update_enabled = options['live_config_update_enabled']
         self.__bootstrap_file = options['bootstrap_file']
@@ -357,6 +363,97 @@ class ConfigurationHandler:
             self.record_valuation(property_id=property_id, feature_id=None, entity_id=entity_id,
                                   evaluated_segment_id=result_dict['evaluated_segment_id'])
 
+    @staticmethod
+    def get_feature_normalised_value(feature: Feature, entity_id: str) -> int:
+        colon = ':'
+        match feature.get_rollout_type():
+            case config_constants.MANUAL:
+                key = colon.join([entity_id, feature.get_feature_id()])
+            case config_constants.PROGRESSIVE:
+                key = colon.join([
+                    entity_id,
+                    feature.get_feature_id(),
+                    feature.get_rollout_configuration().get('start_at', '')
+                    if feature.get_rollout_configuration() is not None else ''
+                ])
+            case config_constants.GUARDED:
+                key = colon.join([
+                    entity_id,
+                    feature.get_feature_id(),
+                    feature.get_rollout_id()
+                ])
+            case _:
+                key = entity_id
+        return get_normalized_value(key)
+
+    @staticmethod
+    def get_rule_normalised_value(rule: SegmentRules, feature_id: str, entity_id: str, start_at: str = None):
+        colon = ':'
+        match rule.get_rollout_type():
+            case config_constants.MANUAL:
+                key = colon.join([entity_id, feature_id])
+            case config_constants.PROGRESSIVE:
+                key = colon.join([
+                    entity_id,
+                    feature_id,
+                    start_at if start_at is not None else ''
+                ])
+            case config_constants.GUARDED:
+                key = colon.join([
+                    entity_id,
+                    feature_id,
+                    rule.get_rollout_id()
+                ])
+            case _:
+                key = entity_id
+        return get_normalized_value(key)
+
+
+    @staticmethod
+    def add_guarded_evaluation_entry(rollout_id: str, entity_id: str, rollout_percentage: int, normalised_value: int):
+        metric = {
+            'rollout_id': rollout_id,
+            'entity_id': entity_id,
+        }
+        if 0 <= normalised_value < rollout_percentage:
+            # enabled value was served to user and needs to be tracked
+            metric['value_served'] = 'target'
+        elif normalised_value >= 100 - rollout_percentage:
+            # disabled value was served to user and needs to be tracked
+            metric['value_served'] = 'original'
+        else:
+            # this evaluation should not be tracked as it is not part of control group
+            return
+        Analytics.get_instance().add_metric(metric, EventType.GUARDED_EVALUATION)
+
+    @staticmethod
+    def add_guarded_metric_entry(
+            entity_id: str,
+            feature_id: str,
+            rollout_id: str,
+            event_key: str,
+            metrics: list[dict[str, str]],
+            rollout_percentage: int
+    ):
+        metric = {
+            'rollout_id': rollout_id,
+            'entity_id': entity_id,
+            'event_key': event_key,
+            'metrics': metrics
+        }
+        normalised_value = get_normalized_value(':'.join([entity_id, feature_id, rollout_id]))
+        if 0 <= normalised_value < rollout_percentage:
+            # enabled value was served to user and needs to be tracked
+            metric['value_served'] = 'target'
+        elif normalised_value >= 100 - rollout_percentage:
+            # disabled value was served to user and needs to be tracked
+            metric['value_served'] = 'original'
+        else:
+            # this evaluation should not be tracked as it is not part of control group
+            return
+        Analytics.get_instance().add_metric(metric, EventType.GUARDED_METRIC)
+
+
     def feature_evaluation(self, feature: Feature, is_enabled: bool, entity_id: str,
                            entity_attributes: dict = None) -> Any:
         """Feature evaluation method
@@ -386,19 +483,20 @@ class ConfigurationHandler:
                     return result_dict['value'], result_dict['is_enabled']
 
                 # Check feature-level rollout
-                rollout_percentage = None
-                if feature.get_rollout_configuration() is not None:
+                if feature.get_rollout_type() == config_constants.PROGRESSIVE and feature.get_rollout_configuration() is not None:
                     rollout_map = self.__rollout_config_map.get(feature.get_feature_id())
                     if rollout_map:
-                        entity_id += feature.get_rollout_configuration().get('start_at')
                         rollout_percentage = get_current_rollout_percentage(rollout_map)
                     else:
                         rollout_percentage = 0
                 else:
                     rollout_percentage = feature.get_rollout_percentage() if feature.get_rollout_percentage() is not None else 100
 
-                if rollout_percentage == 100 or (get_normalized_value(
-                        entity_id + ":" + feature.get_feature_id()) < rollout_percentage):
+                normalised_value = ConfigurationHandler.get_feature_normalised_value(feature, entity_id)
+                if feature.get_rollout_type() == config_constants.GUARDED:
+                    # if guarded rollout add evaluation entry
+                    self.add_guarded_evaluation_entry(feature.get_rollout_id(), entity_id, rollout_percentage, normalised_value)
+                if rollout_percentage == 100 or normalised_value < rollout_percentage:
                     return feature.get_enabled_value(), True
                 return feature.get_disabled_value(), False
             return feature.get_disabled_value(), False
@@ -429,25 +527,18 @@ class ConfigurationHandler:
                                 result_dict['evaluated_segment_id'] = segment_key
                                 if feature is not None:
                                     # evaluate_rules was called for feature flag
-                                    segment_rollout_percentage = None
-                                    
                                     # Check if segment rule has progressive rollout
-                                    if segment_rule.get_rollout_configuration() is not None or segment_rule.get_rollout_type() == config_constants.PROGRESSIVE:
-                                        # Determine which rollout map to use
-                                        if segment_rule.get_rollout_percentage() == config_constants.DEFAULT_ROLLOUT_PERCENTAGE:
-                                            # Use feature-level rollout
-                                            rollout_map = self.__rollout_config_map.get(feature.get_feature_id())
+                                    start_at = None
+                                    if segment_rule.get_rollout_type() == config_constants.PROGRESSIVE:
+                                        # Use segment-level rollout
+                                        start_at = segment_rule.get_rollout_configuration().get('start_at', '')
+                                        rule_id = segment_rule.get_rule_id()
+                                        if rule_id:
+                                            key = feature.get_feature_id() + config_constants.DELIMITER + rule_id
+                                            rollout_map = self.__rollout_config_map.get(key)
                                         else:
-                                            # Use segment-level rollout
-                                            rule_id = segment_rule.get_rule_id()
-                                            if rule_id:
-                                                key = feature.get_feature_id() + config_constants.DELIMITER + rule_id
-                                                rollout_map = self.__rollout_config_map.get(key)
-                                            else:
-                                                rollout_map = None
-                                        
+                                             rollout_map = None
                                         if rollout_map:
-                                            entity_id += segment_rule.get_rollout_configuration().get('start_at')
                                             segment_rollout_percentage = get_current_rollout_percentage(rollout_map)
                                         else:
                                             segment_rollout_percentage = 0
@@ -457,9 +548,16 @@ class ConfigurationHandler:
                                             segment_rollout_percentage = feature.get_rollout_percentage() if feature.get_rollout_percentage() is not None else 100
                                         else:
                                             segment_rollout_percentage = segment_rule.get_rollout_percentage() if segment_rule.get_rollout_percentage() is not None else 100
-                                    
-                                    if segment_rollout_percentage == 100 or (get_normalized_value(
-                                            entity_id + ":" + feature.get_feature_id())) < segment_rollout_percentage:
+
+                                    normalised_value = ConfigurationHandler.get_rule_normalised_value(segment_rule, feature.get_feature_id(), entity_id, start_at)
+                                    if segment_rule.get_rollout_type() == config_constants.GUARDED:
+                                        ConfigurationHandler.add_guarded_evaluation_entry(
+                                            segment_rule.get_rollout_id(),
+                                            entity_id,
+                                            segment_rollout_percentage,
+                                            normalised_value
+                                        )
+                                    if segment_rollout_percentage == 100 or normalised_value < segment_rollout_percentage:
                                         if segment_rule.get_value() == config_constants.DEFAULT_FEATURE_VALUE:
                                             result_dict['value'] = feature.get_enabled_value()
                                         else:
@@ -480,19 +578,20 @@ class ConfigurationHandler:
 
         if feature is not None:
             # Check feature-level rollout
-            rollout_percentage = None
-            if feature.get_rollout_configuration() is not None:
+            if feature.get_rollout_type() == config_constants.PROGRESSIVE and feature.get_rollout_configuration() is not None:
                 rollout_map = self.__rollout_config_map.get(feature.get_feature_id())
                 if rollout_map:
-                    entity_id += feature.get_rollout_configuration().get('start_at')
                     rollout_percentage = get_current_rollout_percentage(rollout_map)
                 else:
                     rollout_percentage = 0
             else:
                 rollout_percentage = feature.get_rollout_percentage() if feature.get_rollout_percentage() is not None else 100
-            
-            if rollout_percentage == 100 or get_normalized_value(
-                    entity_id + ":" + feature.get_feature_id()) < rollout_percentage:
+
+            normalised_value = ConfigurationHandler.get_feature_normalised_value(feature, entity_id)
+            if feature.get_rollout_type() == config_constants.GUARDED:
+                # if guarded rollout add evaluation entry
+                self.add_guarded_evaluation_entry(feature.get_rollout_id(), entity_id, rollout_percentage, normalised_value)
+            if rollout_percentage == 100 or normalised_value < rollout_percentage:
                 result_dict['value'] = feature.get_enabled_value()
                 result_dict['is_enabled'] = True
             else:
@@ -601,3 +700,7 @@ class ConfigurationHandler:
         Returns: boolean indicating connection status
         """
         return self.__socket.is_connected()
+
+    def flush_analytics(self):
+        """Immediately flush all pending analytics data."""
+        Analytics.get_instance().flush()
