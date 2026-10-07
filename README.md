@@ -163,6 +163,22 @@ feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes
   used to define a segment. The SDK uses the attribute values to determine if the specified entity satisfies the
   targeting rules, and returns the appropriate feature flag value.
 
+## Track metrics for Guarded Rollout
+
+Use the `feature.track(event_key=event_key, entity_id=entity_id)` method to record metric events for feature flags configured with guarded rollouts.
+
+```py
+feature = appconfig_client.get_feature('online-check-in')
+
+if feature is not None:
+    event_key = "purchase"
+    entity_id = "john_doe"
+    feature.track(event_key=event_key, entity_id=entity_id)
+```
+
+- entity_id: Id of the Entity. This will be a string identifier related to the Entity against which the metric event is tracked. It should match the `entity_id` used during the feature evaluation.
+- event_key: The string identifier of the event configured in the metric map of the guarded rollout.
+
 ## Get single Property
 
 ```py
