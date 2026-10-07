@@ -16,7 +16,7 @@
 This module provides methods that perform metering and usage related operations.
 """
 from threading import Lock, Timer
-from datetime import datetime
+from datetime import datetime, timezone
 from .api_manager import APIManager
 from .logger import Logger
 from ..common import config_messages, config_constants
@@ -80,7 +80,7 @@ class Metering:
 
         self.__lock.acquire()
         try:
-            time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             feature_json = {
                 'count': 1,
                 'evaluation_time': time

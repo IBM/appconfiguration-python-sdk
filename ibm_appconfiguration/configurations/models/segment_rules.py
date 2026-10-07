@@ -36,6 +36,8 @@ class SegmentRules:
         else:
             self.__rollout_percentage = segment_rules.get("rollout_percentage", 100)
             self.__rollout_configuration = None
+        self.__rollout_id = segment_rules.get('rollout_id', None)
+        self.__metric_map = segment_rules.get('metric_map', None)
 
     def get_order(self) -> int:
         """Get the SegmentRule order"""
@@ -64,3 +66,6 @@ class SegmentRules:
     def get_rollout_configuration(self) -> dict:
         """Get the rollout configuration for SegmentRule"""
         return self.__rollout_configuration
+
+    def get_rollout_id(self) -> str:
+        return self.__rollout_id if self.__rollout_id is not None else ''

@@ -60,6 +60,47 @@ def append_segment_ids(resource: Dict[str, Any], segment_ids: Set[str]):
             for segment_id in rule.get("segments", []):
                 segment_ids.add(segment_id)
 
+def build_metric_map(feature: Dict[str, Any]):
+    """
+    This function builds metric map and stores it in feature from metrics data
+    metric_map format => {
+        event_key: [{id, type}...]
+        ...
+    }
+    """
+
+    # parse feature level metrics
+    if "metrics" in feature:
+        metric_map = dict()
+        for metric in feature["metrics"]:
+            event_key = metric["event_key"]
+            metric = {
+                "id": metric["id"],
+                "type": metric["type"]
+            }
+            if event_key in metric_map:
+                metric_map[event_key].append(metric)
+            else:
+                metric_map[event_key] = [metric]
+        feature["metric_map"] = metric_map
+
+    # parse segment rule level metrics
+    if "segment_rules" in feature:
+        for rule in feature["segment_rules"]:
+            if "metrics" in rule:
+                metric_map = dict()
+                for metric in rule["metrics"]:
+                    event_key = metric["event_key"]
+                    metric = {
+                        "id": metric["id"],
+                        "type": metric["type"]
+                    }
+                    if event_key in metric_map:
+                        metric_map[event_key].append(metric)
+                    else:
+                        metric_map[event_key] = [metric]
+                rule["metric_map"] = metric_map
+
 
 def extract_resources(resource_data: Dict[str, Any], collection: str) -> Dict[str, List[Any]]:
     """
@@ -78,6 +119,7 @@ def extract_resources(resource_data: Dict[str, Any], collection: str) -> Dict[st
     for feature in resource_data.get("features", []):
         if validate_resource(feature, collection):
             append_segment_ids(feature, required_segment_ids)
+            build_metric_map(feature)
             features.append(feature)
 
     for property_ in resource_data.get("properties", []):

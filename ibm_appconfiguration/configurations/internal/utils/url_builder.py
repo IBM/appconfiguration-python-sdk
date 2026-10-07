@@ -30,12 +30,15 @@ class URLBuilder:
     __service = "/apprapp"
     __feature_path = "/feature/v1/instances/"
     __events_path = "/events/v1/instances/"
+    __metrics_path = "/metrics/v1/instances/"
     __config = "config"
     __usage = "usage"
+    __analytics = "analytics"
     __http_base = ''
     __web_socket_base = ''
     __web_socket_url = ''
     __config_path = ''
+    __analytics_path = ''
     __metering_path = ''
     __iam_url = ''
     __iam_authenticator = None
@@ -91,10 +94,14 @@ class URLBuilder:
                 cls.__config,
                 collection_id,
                 environment_id)
-            cls.__metering_path = '{0}{1}{2}/usage'.format(cls.__service,
+            cls.__metering_path = '{0}{1}{2}/{3}'.format(cls.__service,
                                                            cls.__events_path,
                                                            guid,
                                                            cls.__usage)
+            cls.__analytics_path = '{0}{1}{2}/{3}'.format(cls.__service,
+                                                            cls.__metrics_path,
+                                                            guid,
+                                                            cls.__analytics)
             cls.__web_socket_url = cls.__web_socket_base + '{0}{1}?instance_id={2}&collection_id={3}&environment_id={4}'.format(
                 cls.__service,
                 cls.__wspath,
@@ -134,6 +141,11 @@ class URLBuilder:
     def get_metering_path(cls) -> str:
         """Get the metering path"""
         return cls.__metering_path
+
+    @classmethod
+    def get_analytics_path(cls) -> str:
+        """Get the analytics path"""
+        return cls.__analytics_path
 
     @classmethod
     def get_iam_authenticator(cls) -> Authenticator:
