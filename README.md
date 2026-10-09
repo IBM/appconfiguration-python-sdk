@@ -8,6 +8,18 @@ IBM Cloud App Configuration SDK is used to perform feature flag and property eva
   - [Installation](#installation)
   - [Import the SDK](#import-the-sdk)
   - [Initialize SDK](#initialize-sdk)
+  - [Get single feature](#get-single-feature)
+  - [Get all features](#get-all-features)
+  - [Evaluate a feature](#evaluate-a-feature)
+  - [Track metrics (Guarded rollout)](#track-metrics-guarded-rollout)
+  - [Get single Property](#get-single-property)
+  - [Get all Properties](#get-all-properties)
+  - [Evaluate a property](#evaluate-a-property)
+  - [Fetching the appconfig_client across other modules](#fetching-the-appconfig_client-across-other-modules)
+  - [Supported Data types](#supported-data-types)
+  - [Set listener for the feature and property data changes](#set-listener-for-the-feature-and-property-data-changes)
+  - [Enable debugger (Optional)](#enable-debugger-optional)
+  - [Examples](#examples)
   - [License](#license)
 
 ## Overview
@@ -162,6 +174,52 @@ feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes
   configured, then entity_attributes should be provided for the rule evaluation. An attribute is a parameter that is
   used to define a segment. The SDK uses the attribute values to determine if the specified entity satisfies the
   targeting rules, and returns the appropriate feature flag value.
+
+## Track metrics (Guarded rollout)
+
+When a feature flag is configured with a **Guarded Rollout** in the IBM Cloud App Configuration service, you can measure the impact of the feature by tracking user interactions or business metrics (such as button clicks, page visits, conversions, or error rates).
+
+In the App Configuration dashboard, metrics are associated with an **Event Key** (the event identifier configured for that feature flag's metric).
+
+Use the `feature.track(event_key=event_key, entity_id=entity_id)` method to record metric events for an entity.
+
+```py
+event_key = "checkout_click"  # The event key configured for the metric in App Configuration service
+entity_id = "john_doe"
+
+feature.track(event_key=event_key, entity_id=entity_id)
+```
+
+- `event_key`: A string identifier representing the event key configured for the metric in the App Configuration service instance (e.g. `'checkout_click'`, `'purchase_completed'`).
+- `entity_id`: Id of the Entity. This string identifier must match the `entity_id` used when evaluating the feature flag using `get_current_value()`.
+
+### Example: Evaluating and tracking a guarded feature
+
+```py
+from ibm_appconfiguration import AppConfiguration
+
+appconfig_client = AppConfiguration.get_instance()
+feature = appconfig_client.get_feature('checkout-redesign')
+
+entity_id = "user_12345"
+entity_attributes = {
+    'city': 'Bangalore',
+    'country': 'India'
+}
+
+# 1. Evaluate the feature value for the entity
+feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes=entity_attributes)
+
+# 2. Perform actions based on the evaluated feature value in your application
+# ...
+
+# 3. When the user performs the event (e.g., clicks the checkout button), track it
+event_key = "checkout_click"
+feature.track(event_key=event_key, entity_id=entity_id)
+```
+
+`Flush pending records` :- Use `flush_records()` to immediately send all pending analytics data to the App Configuration service, without waiting for the next scheduled flush (analytics data is normally sent at an interval of 5 minutes). This is useful on page unload or before your application exits to ensure no metric events are lost.
+Function format :- `appconfig_client.flush_records()`
 
 ## Get single Property
 
