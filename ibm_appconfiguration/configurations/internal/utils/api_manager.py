@@ -60,6 +60,9 @@ class APIManager(BaseService):
 
         headers = {'Content-Type': 'application/json',
                    'User-Agent': '{0}/{1}'.format(config_constants.SDK_NAME, __version__)}
+        if URLBuilder.is_relay_proxy_configured():
+            # relay proxy mode: the apikey is directly set as the Authorization header
+            headers['Authorization'] = URLBuilder.get_apikey()
         if data and isinstance(data, dict):
             data = self.__remove_null_values(data)
             data = json_import.dumps(data)
@@ -115,6 +118,12 @@ class APIManager(BaseService):
             Exception: If token retrieval fails, the exception is propagated
                       to allow the caller to determine if reconnection should be attempted
         """
+        if URLBuilder.is_relay_proxy_configured():
+            # relay proxy mode: no IAM token, the apikey is directly set as the Authorization header
+            return {
+                'Authorization': URLBuilder.get_apikey(),
+                'User-Agent': '{0}/{1}'.format(config_constants.SDK_NAME, __version__)
+            }
         try:
             bearer_token = URLBuilder.get_iam_authenticator().token_manager.get_token()
             return {

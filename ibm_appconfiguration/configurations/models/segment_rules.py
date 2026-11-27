@@ -69,3 +69,7 @@ class SegmentRules:
 
     def get_rollout_id(self) -> str:
         return self.__rollout_id if self.__rollout_id is not None else ''
+
+    def get_metric_map(self) -> dict:
+        """Get the metric map for SegmentRule"""
+        return self.__metric_map if self.__metric_map is not None else {}

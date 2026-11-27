@@ -33,7 +33,7 @@ Segment gf-1, rollout_id seg-rid-1, rollout_percentage 30:
 """
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from ibm_appconfiguration.configurations.models.feature import Feature
 from ibm_appconfiguration.configurations.models.segment_rules import SegmentRules
@@ -67,6 +67,44 @@ def make_guarded_feature(**overrides):
     return Feature(base)
 
 
+def make_segment_feature(rule_overrides=None, **overrides):
+    """Feature (MANUAL, pct 30) with one rule matching SEGMENT_ID; the rule is GUARDED by default."""
+    rule = {
+        "rules": [{"segments": [SEGMENT_ID]}], "value": "$default", "order": 1,
+        "rollout_type": "GUARDED", "rollout_percentage": ROLLOUT_PCT,
+        "rollout_id": SEG_ROLLOUT_ID,
+        "metric_map": {"purchase": [{"id": "seg-metric", "type": "count"}]},
+    }
+    rule.update(rule_overrides or {})
+    base = {
+        "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
+        "enabled_value": True, "disabled_value": False, "enabled": True,
+        "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT, "rollout_id": None,
+        "segment_rules": [rule],
+        "metric_map": {"purchase": [{"id": "feat-metric", "type": "count"}]},
+    }
+    base.update(overrides)
+    return Feature(base)
+
+
+ATTRS = {"any": "attr"}
+
+
+class SegmentMapMixin:
+    """Injects a segment map where SEGMENT_ID matches and 'seg-no' does not."""
+
+    def _set_segment_map(self):
+        handler = ConfigurationHandler.get_instance()
+        self._orig_segment_map = handler._ConfigurationHandler__segment_map
+        handler._ConfigurationHandler__segment_map = {
+            SEGMENT_ID: MagicMock(evaluate_rule=MagicMock(return_value=True)),
+            "seg-no": MagicMock(evaluate_rule=MagicMock(return_value=False)),
+        }
+
+    def _restore_segment_map(self):
+        ConfigurationHandler.get_instance()._ConfigurationHandler__segment_map = self._orig_segment_map
+
+
 # ─── URLBuilder ──────────────────────────────────────────────────────────────
 
 class TestURLBuilderAnalyticsPath(unittest.TestCase):
@@ -94,6 +132,13 @@ class TestSegmentRulesGuarded(unittest.TestCase):
             "rollout_id": SEG_ROLLOUT_ID,
         })
         self.assertEqual(sr.get_rollout_id(), SEG_ROLLOUT_ID)
+
+    def test_metric_map_is_read(self):
+        sr = SegmentRules({"rules": [], "metric_map": {"e": [{"id": "m"}]}})
+        self.assertEqual(sr.get_metric_map(), {"e": [{"id": "m"}]})
+
+    def test_metric_map_defaults_to_empty_dict_when_absent(self):
+        self.assertEqual(SegmentRules({"rules": []}).get_metric_map(), {})
 
     def test_rollout_id_defaults_to_empty_string_when_absent(self):
         sr = SegmentRules({"rules": [], "value": "$default", "order": 1})
@@ -203,25 +248,6 @@ class TestFeatureTrack(unittest.TestCase):
         })
         f.track("purchase", "u17")
         self.assertEqual(len(self._usages()), 0)
-
-    def test_uses_segment_level_rollout_id_when_segment_is_guarded(self):
-        # u2: seg norm=11 < 30 -> target
-        f = Feature({
-            "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
-            "enabled_value": True, "disabled_value": False, "enabled": True,
-            "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT, "rollout_id": None,
-            "segment_rules": [{
-                "rules": [{"segments": [SEGMENT_ID]}], "value": "$default", "order": 1,
-                "rollout_type": "GUARDED", "rollout_percentage": ROLLOUT_PCT,
-                "rollout_id": SEG_ROLLOUT_ID,
-            }],
-            "metric_map": {"purchase": [{"id": "m1", "type": "count"}]},
-        })
-        f.track("purchase", "u2")
-        usages = self._usages()
-        self.assertEqual(len(usages), 1)
-        self.assertEqual(usages[0]["value_served"], "target")
-        self.assertEqual(usages[0]["rollout_id"], SEG_ROLLOUT_ID)
 
     def test_track_includes_metrics_array_in_event_body(self):
         f = make_guarded_feature()
@@ -408,15 +434,17 @@ class TestGetCurrentValueEntityIdValidation(unittest.TestCase):
 
 # ─── Feature.track() — additional edge cases ─────────────────────────────────
 
-class TestFeatureTrackEdgeCases(unittest.TestCase):
+class TestFeatureTrackEdgeCases(SegmentMapMixin, unittest.TestCase):
 
     def setUp(self):
         self._analytics = Analytics.get_instance()
         self._original_record = self._analytics._Analytics__record
         self._analytics._Analytics__record = AnalyticsRecord()
+        self._set_segment_map()
 
     def tearDown(self):
         self._analytics._Analytics__record = self._original_record
+        self._restore_segment_map()
 
     def _usages(self):
         return self._analytics._Analytics__record.get_request_body("e", "c")["usages"]
@@ -436,82 +464,87 @@ class TestFeatureTrackEdgeCases(unittest.TestCase):
         f.track("   ", "u17")
         self.assertEqual(len(self._usages()), 0)
 
-    def test_segment_metric_map_takes_priority_over_feature_metric_map(self):
-        # The segment rule has its own metric_map for "purchase" with a
-        # different metric id. track() must resolve from the segment, not
-        # the feature-level map.
-        f = Feature({
-            "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
-            "enabled_value": True, "disabled_value": False, "enabled": True,
-            "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT,
-            "rollout_id": None,
-            "segment_rules": [{
-                "rules": [{"segments": [SEGMENT_ID]}], "value": "$default", "order": 1,
-                "rollout_type": "GUARDED", "rollout_percentage": ROLLOUT_PCT,
-                "rollout_id": SEG_ROLLOUT_ID,
-                "metric_map": {"purchase": [{"id": "seg-metric", "type": "count"}]},
-            }],
-            "metric_map": {"purchase": [{"id": "feat-metric", "type": "count"}]},
-        })
-        # u2: seg norm=11 < 30 -> target
-        f.track("purchase", "u2")
-        usages = self._usages()
-        self.assertEqual(len(usages), 1)
-        self.assertEqual(usages[0]["metrics"][0]["id"], "seg-metric")
-
-    def test_segment_level_guarded_original_range(self):
-        # u1: seg norm=79 >= 100-30=70 -> original
-        f = Feature({
-            "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
-            "enabled_value": True, "disabled_value": False, "enabled": True,
-            "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT, "rollout_id": None,
-            "segment_rules": [{
-                "rules": [], "value": "$default", "order": 1,
-                "rollout_type": "GUARDED", "rollout_percentage": ROLLOUT_PCT,
-                "rollout_id": SEG_ROLLOUT_ID,
-            }],
-            "metric_map": {"purchase": [{"id": "m1", "type": "count"}]},
-        })
-        f.track("purchase", "u1")
-        usages = self._usages()
-        self.assertEqual(len(usages), 1)
-        self.assertEqual(usages[0]["value_served"], "original")
-        self.assertEqual(usages[0]["rollout_id"], SEG_ROLLOUT_ID)
-
-    def test_segment_level_guarded_outside_range_emits_nothing(self):
-        # u3: seg norm=53 -> 30 <= 53 < 70 -> outside
-        f = Feature({
-            "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
-            "enabled_value": True, "disabled_value": False, "enabled": True,
-            "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT, "rollout_id": None,
-            "segment_rules": [{
-                "rules": [], "value": "$default", "order": 1,
-                "rollout_type": "GUARDED", "rollout_percentage": ROLLOUT_PCT,
-                "rollout_id": SEG_ROLLOUT_ID,
-            }],
-            "metric_map": {"purchase": [{"id": "m1", "type": "count"}]},
-        })
-        f.track("purchase", "u3")
-        self.assertEqual(len(self._usages()), 0)
-
-    def test_segment_rule_default_rollout_pct_inherits_feature_pct(self):
-        # Segment rollout_percentage is '$default' → inherits feature rollout_percentage (30).
-        # u2: seg norm=11 < 30 -> target with inherited pct
-        f = Feature({
-            "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
-            "enabled_value": True, "disabled_value": False, "enabled": True,
-            "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT, "rollout_id": None,
-            "segment_rules": [{
-                "rules": [], "value": "$default", "order": 1,
-                "rollout_type": "GUARDED", "rollout_percentage": "$default",
-                "rollout_id": SEG_ROLLOUT_ID,
-            }],
-            "metric_map": {"purchase": [{"id": "m1", "type": "count"}]},
-        })
-        f.track("purchase", "u2")
+    def test_matched_guarded_rule_uses_its_rollout_id_and_metric_map(self):
+        # u2: seg norm=11 < 30 -> target; feature-level map must not be used
+        make_segment_feature().track("purchase", "u2", ATTRS)
         usages = self._usages()
         self.assertEqual(len(usages), 1)
         self.assertEqual(usages[0]["value_served"], "target")
+        self.assertEqual(usages[0]["rollout_id"], SEG_ROLLOUT_ID)
+        self.assertEqual(usages[0]["metrics"][0]["id"], "seg-metric")
+
+    def test_matched_guarded_rule_original_range(self):
+        # u1: seg norm=79 >= 70 -> original
+        make_segment_feature().track("purchase", "u1", ATTRS)
+        usages = self._usages()
+        self.assertEqual(len(usages), 1)
+        self.assertEqual(usages[0]["value_served"], "original")
+
+    def test_matched_guarded_rule_outside_range_emits_nothing(self):
+        # u3: seg norm=53 -> outside
+        make_segment_feature().track("purchase", "u3", ATTRS)
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_matched_non_guarded_rule_emits_nothing_even_if_feature_is_guarded(self):
+        f = make_segment_feature({"rollout_type": "MANUAL", "rollout_id": None},
+                                 rollout_type="GUARDED", rollout_id=ROLLOUT_ID)
+        f.track("purchase", "u17", ATTRS)
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_matched_rule_without_metric_map_does_not_fall_back_to_feature_map(self):
+        f = make_segment_feature({"metric_map": None})
+        f.track("purchase", "u2", ATTRS)
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_matched_rule_missing_event_key_emits_nothing(self):
+        make_segment_feature().track("other", "u2", ATTRS)
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_first_matching_rule_by_order_wins(self):
+        second = {
+            "rules": [{"segments": [SEGMENT_ID]}], "value": "$default", "order": 2,
+            "rollout_type": "GUARDED", "rollout_percentage": ROLLOUT_PCT,
+            "rollout_id": "other-rid",
+            "metric_map": {"purchase": [{"id": "second", "type": "count"}]},
+        }
+        first = make_segment_feature().get_segment_rules()[0]
+        # list order reversed on purpose
+        f = make_segment_feature(segment_rules=[second, first])
+        f.track("purchase", "u2", ATTRS)
+        usages = self._usages()
+        self.assertEqual(len(usages), 1)
+        self.assertEqual(usages[0]["rollout_id"], SEG_ROLLOUT_ID)
+
+    def test_unmatched_attributes_use_feature_level_guarded(self):
+        f = make_segment_feature({"rules": [{"segments": ["seg-no"]}]},
+                                 rollout_type="GUARDED", rollout_id=ROLLOUT_ID)
+        f.track("purchase", "u17", ATTRS)  # feature norm=19 < 30
+        usages = self._usages()
+        self.assertEqual(len(usages), 1)
+        self.assertEqual(usages[0]["rollout_id"], ROLLOUT_ID)
+        self.assertEqual(usages[0]["metrics"][0]["id"], "feat-metric")
+
+    def test_unmatched_attributes_with_non_guarded_feature_emit_nothing(self):
+        f = make_segment_feature({"rules": [{"segments": ["seg-no"]}]})
+        f.track("purchase", "u2", ATTRS)
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_no_attributes_never_evaluates_rules(self):
+        # Guarded rule exists, but without attributes only the feature level is considered
+        for attrs in (None, {}):
+            make_segment_feature().track("purchase", "u2", attrs)
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_invalid_entity_attributes_emit_nothing(self):
+        make_guarded_feature().track("purchase", "u17", "city=blr")
+        self.assertEqual(len(self._usages()), 0)
+
+    def test_matching_does_not_record_analytics_or_metering(self):
+        with patch.object(ConfigurationHandler, "add_guarded_evaluation_entry") as ev, \
+                patch.object(ConfigurationHandler, "record_valuation") as rec:
+            make_segment_feature().track("purchase", "u2", ATTRS)
+        ev.assert_not_called()
+        rec.assert_not_called()
 
 
 # ─── add_guarded_evaluation_entry — boundary and edge cases ──────────────────
@@ -622,58 +655,6 @@ class TestFeatureLevelGuardedEvaluationEntry(unittest.TestCase):
         })
         self.handler.feature_evaluation(f, True, "u2", None)
         self.assertEqual(len(self._usages()), 0)
-
-
-# ─── segment-level evaluation — rollout_percentage == $default ───────────────
-
-class TestSegmentLevelGuardedDefaultPct(unittest.TestCase):
-    """
-    When a segment rule has rollout_percentage == '$default', it inherits
-    the feature-level rollout_percentage for the guarded evaluation.
-    """
-
-    def setUp(self):
-        self.handler = ConfigurationHandler.get_instance()
-        self.handler._ConfigurationHandler__segment_map = {
-            SEGMENT_ID: MagicMock(evaluate_rule=MagicMock(return_value=True)),
-        }
-        self._analytics = Analytics.get_instance()
-        self._original_record = self._analytics._Analytics__record
-        self._analytics._Analytics__record = AnalyticsRecord()
-
-    def tearDown(self):
-        self._analytics._Analytics__record = self._original_record
-
-    def _usages(self):
-        return self._analytics._Analytics__record.get_request_body("e", "c")["usages"]
-
-    def _feature_with_default_seg_pct(self):
-        return Feature({
-            "name": "f", "feature_id": FEATURE_ID, "type": "BOOLEAN",
-            "enabled_value": True, "disabled_value": False, "enabled": True,
-            "rollout_type": "MANUAL", "rollout_percentage": ROLLOUT_PCT, "rollout_id": None,
-            "segment_rules": [{
-                "rules": [{"segments": [SEGMENT_ID]}], "value": "$default", "order": 1,
-                "rollout_type": "GUARDED", "rollout_percentage": "$default",
-                "rollout_id": SEG_ROLLOUT_ID,
-            }],
-        })
-
-    def test_inherits_feature_pct_and_serves_enabled_for_target_entity(self):
-        # u2: seg norm=11 < 30 (inherited) -> target -> enabled value
-        value, is_enabled = self.handler.feature_evaluation(
-            self._feature_with_default_seg_pct(), True, "u2", {"any": "attr"})
-        self.assertTrue(value)
-        self.assertTrue(is_enabled)
-        self.assertEqual(self._usages()[0]["value_served"], "target")
-
-    def test_inherits_feature_pct_and_serves_disabled_for_original_entity(self):
-        # u1: seg norm=79 >= 100-30=70 (inherited pct=30) -> original -> disabled
-        value, is_enabled = self.handler.feature_evaluation(
-            self._feature_with_default_seg_pct(), True, "u1", {"any": "attr"})
-        self.assertFalse(value)
-        self.assertFalse(is_enabled)
-        self.assertEqual(self._usages()[0]["value_served"], "original")
 
 
 if __name__ == "__main__":
