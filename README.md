@@ -181,17 +181,32 @@ When a feature flag is configured with a **Guarded Rollout** in the IBM Cloud Ap
 
 In the App Configuration dashboard, metrics are associated with an **Event Key** (the event identifier configured for that feature flag's metric).
 
-Use the `feature.track(event_key=event_key, entity_id=entity_id)` method to record metric events for an entity.
+Use the `feature.track(event_key=event_key, entity_id=entity_id, entity_attributes=entity_attributes)` method to record metric events for an entity.
 
 ```py
 event_key = "checkout_click"  # The event key configured for the metric in App Configuration service
 entity_id = "john_doe"
+entity_attributes = {
+    'city': 'Bangalore',
+    'country': 'India'
+}
 
-feature.track(event_key=event_key, entity_id=entity_id)
+feature.track(event_key=event_key, entity_id=entity_id, entity_attributes=entity_attributes)
 ```
 
 - `event_key`: A string identifier representing the event key configured for the metric in the App Configuration service instance (e.g. `'checkout_click'`, `'purchase_completed'`).
 - `entity_id`: Id of the Entity. This string identifier must match the `entity_id` used when evaluating the feature flag using `get_current_value()`.
+- `entity_attributes`: A dictionary consisting of the attribute name and their values that defines the specified entity.
+  This is an optional parameter. Pass the same values that you passed to `get_current_value()`, so that the metric is
+  recorded against the same targeting rule that served the feature flag value.
+  - If the attributes match a targeting rule that is configured with a guarded rollout, the metric is recorded for
+    that rule.
+  - If the attributes match a targeting rule that is not configured with a guarded rollout, no metric is recorded.
+  - If the attributes are not provided, or do not match any targeting rule, the metric is recorded for the guarded
+    rollout configured on the feature flag itself.
+
+> If the feature flag is configured with a guarded rollout on a targeting rule, you must pass `entity_attributes`.
+> Without them, the rule cannot be matched and no metric is recorded.
 
 ### Example: Evaluating and tracking a guarded feature
 
@@ -215,7 +230,7 @@ feature_value = feature.get_current_value(entity_id=entity_id, entity_attributes
 
 # 3. When the user performs the event (e.g., clicks the checkout button), track it
 event_key = "checkout_click"
-feature.track(event_key=event_key, entity_id=entity_id)
+feature.track(event_key=event_key, entity_id=entity_id, entity_attributes=entity_attributes)
 ```
 
 `Flush pending records` :- Use `flush_records()` to immediately send all pending analytics data to the App Configuration service, without waiting for the next scheduled flush (analytics data is normally sent at an interval of 5 minutes). This is useful on page unload or before your application exits to ensure no metric events are lost.

@@ -25,6 +25,7 @@ from typing import Dict, Optional
 from .configurations.internal.utils.validators import Validators
 from .configurations.models import Feature, Property
 from .configurations.internal.utils.logger import Logger
+from .configurations.internal.utils.url_builder import URLBuilder
 from .configurations.internal.common import config_messages
 from .configurations.configuration_handler import ConfigurationHandler
 
@@ -67,6 +68,22 @@ class AppConfiguration:
         """
         if len(url) > 0:
             AppConfiguration.__override_service_url = url
+
+    @staticmethod
+    def set_relay_proxy_endpoint(url: str):
+        """Configure the SDK to connect to a relay proxy.
+        In this mode no IAM token is generated. The apikey is sent as is in the Authorization header.
+        This method should be invoked before the SDK initialization.
+
+        Example:
+            AppConfiguration.set_relay_proxy_endpoint("https://relay-proxy-host:port")
+
+        Args:
+            url: The base url of the relay proxy
+        """
+        if Validators.validate_string(url):
+            AppConfiguration.__override_service_url = url
+            URLBuilder.set_relay_proxy_configured(True)
 
     @staticmethod
     def enable_debug(enable: bool):

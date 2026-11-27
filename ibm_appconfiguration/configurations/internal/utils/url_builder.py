@@ -23,6 +23,7 @@ from .validators import Validators
 class URLBuilder:
     """URLBuilder class to create different urls for the library """
     __https = 'https://'
+    __ws = "ws://"
     __wss = "wss://"
     __base_url = ".apprapp.cloud.ibm.com"
     __private_endpoint_prefix = "private."
@@ -43,6 +44,8 @@ class URLBuilder:
     __iam_url = ''
     __iam_authenticator = None
     __hasAuth = True
+    __relay_proxy_configured = False
+    __apikey = ''
     __network_check_url = 'https://cloud.ibm.com'
 
     @classmethod
@@ -68,14 +71,19 @@ class URLBuilder:
             # for dev & stage
             if Validators.validate_string(override_service_url):
                 temp = override_service_url.split("://")
-                if use_private_endpoint:
+                # relay proxy url is used as is, the private endpoint prefix does not apply
+                if use_private_endpoint and not cls.__relay_proxy_configured:
                     cls.__http_base = temp[0] + "://" + cls.__private_endpoint_prefix + temp[1]
                     cls.__iam_url = "https://private.iam.test.cloud.ibm.com"
-                    cls.__web_socket_base = cls.__wss + cls.__private_endpoint_prefix + temp[1]
+                    if override_service_url.__contains__("https://"):
+                        cls.__web_socket_base = cls.__wss
+                    else:
+                        cls.__web_socket_base = cls.__ws
+                    cls.__web_socket_base += cls.__private_endpoint_prefix + temp[1]
                 else:
                     cls.__http_base = override_service_url
                     cls.__iam_url = "https://iam.test.cloud.ibm.com"
-                    cls.__web_socket_base = cls.__wss + temp[1]
+                    cls.__web_socket_base = override_service_url.replace("http", "ws", 1)
             # for prod
             else:
                 if use_private_endpoint:
@@ -109,13 +117,30 @@ class URLBuilder:
                 collection_id,
                 environment_id)
 
-            # create authenticator
-            cls.__iam_authenticator = IAMAuthenticator(apikey, url=cls.__iam_url)
+            cls.__apikey = apikey
+            # create authenticator. In relay proxy mode no IAM token is generated, the apikey is sent as is.
+            if not cls.__relay_proxy_configured:
+                cls.__iam_authenticator = IAMAuthenticator(apikey, url=cls.__iam_url)
 
     @classmethod
     def set_auth_type(cls, has_auth=True):
         """Set the auth type"""
         cls.__hasAuth = has_auth
+
+    @classmethod
+    def set_relay_proxy_configured(cls, configured=True):
+        """Set whether the SDK is connecting to a relay proxy"""
+        cls.__relay_proxy_configured = configured
+
+    @classmethod
+    def is_relay_proxy_configured(cls) -> bool:
+        """Check whether the SDK is connecting to a relay proxy"""
+        return cls.__relay_proxy_configured
+
+    @classmethod
+    def get_apikey(cls) -> str:
+        """Get the apikey"""
+        return cls.__apikey
 
     @classmethod
     def get_iam_url(cls) -> str:
@@ -154,7 +179,7 @@ class URLBuilder:
         Returns:
             Authenticator object
         """
-        if cls.__hasAuth:
+        if cls.__hasAuth and not cls.__relay_proxy_configured:
             return cls.__iam_authenticator
         return NoAuthAuthenticator()
 

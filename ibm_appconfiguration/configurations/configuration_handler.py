@@ -523,7 +523,7 @@ class ConfigurationHandler:
                         rule: dict = segment_rule.get_rules()[level]
                         segments: List = rule.get('segments')
                         for _, segment_key in enumerate(segments):
-                            if self.__evaluate_segment(segment_key, entity_attributes):
+                            if self.evaluate_segment(segment_key, entity_attributes):
                                 result_dict['evaluated_segment_id'] = segment_key
                                 if feature is not None:
                                     # evaluate_rules was called for feature flag
@@ -542,6 +542,9 @@ class ConfigurationHandler:
                                             segment_rollout_percentage = get_current_rollout_percentage(rollout_map)
                                         else:
                                             segment_rollout_percentage = 0
+                                    elif segment_rule.get_rollout_type() == config_constants.GUARDED:
+                                        # Guarded rollout is exclusive, the rule carries its own percentage
+                                        segment_rollout_percentage = int(segment_rule.get_rollout_percentage())
                                     else:
                                         # Use manual rollout percentage
                                         if segment_rule.get_rollout_percentage() == config_constants.DEFAULT_ROLLOUT_PERCENTAGE:
@@ -601,7 +604,7 @@ class ConfigurationHandler:
             result_dict['value'] = property_obj.get_value()
         return result_dict
 
-    def __evaluate_segment(self, segment_key: str, entity_attributes: dict) -> bool:
+    def evaluate_segment(self, segment_key: str, entity_attributes: dict) -> bool:
         if segment_key in self.__segment_map:
             segment: Segment = self.__segment_map[segment_key]
             return segment.evaluate_rule(entity_attributes)

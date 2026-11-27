@@ -15,7 +15,6 @@
 """
 This module provides methods to perform operations on the websocket connection to the server.
 """
-import ssl
 import websocket
 import threading
 from time import sleep
@@ -172,7 +171,7 @@ class Socket:
                     header=current_headers
                 )
 
-                self.ws_client.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
+                self.ws_client.run_forever()
 
                 if self.__should_reconnect:
                     Logger.debug(f"Reconnecting to websocket in {WEBSOCKET_RECONNECT_DELAY} seconds...")

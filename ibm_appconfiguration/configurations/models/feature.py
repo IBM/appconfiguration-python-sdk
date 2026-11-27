@@ -21,6 +21,7 @@ from ..internal.utils.logger import Logger
 from ..internal.utils.validators import Validators
 from .configuration_type import ConfigurationType
 from ..internal.common import config_constants
+from .segment_rules import SegmentRules
 
 
 class Feature:
@@ -34,6 +35,7 @@ class Feature:
         self.__name = feature_list.get('name', '')
         self.__feature_id = feature_list.get('feature_id', '')
         self.__segment_rules = feature_list.get('segment_rules', list())
+        self.__parsed_segment_rules = self.__parse_segment_rules()
         self.__feature_data = feature_list
         self.__type = ConfigurationType(
             feature_list.get('type') if feature_list.get('type') is not None else ConfigurationType.NUMERIC)
@@ -49,6 +51,16 @@ class Feature:
             self.__rollout_configuration = None
         self.__rollout_id = feature_list.get('rollout_id', None)
         self.__metric_map = feature_list.get('metric_map', {})
+
+    def __parse_segment_rules(self) -> list:
+        """Parse the raw segment rules into SegmentRules objects sorted by order"""
+        parsed_rules = []
+        for rule_json in self.__segment_rules:
+            try:
+                parsed_rules.append(SegmentRules(rule_json))
+            except Exception as err:
+                Logger.debug(err)
+        return sorted(parsed_rules, key=lambda rule: rule.get_order())
 
     def get_feature_name(self) -> str:
         """Get the Feature name"""
@@ -140,54 +152,76 @@ class Feature:
         """Get the metric map for this feature"""
         return self.__metric_map
 
-    def track(self, event_key, entity_id):
+    def get_matched_segment_rule(self, entity_attributes: dict):
+        """Get the first segment rule (by order) whose segments match the entity attributes.
+
+        Only matches the rules, no rollout, analytics or metering is performed.
+
+        Args:
+            entity_attributes (dict): Entity attributes object.
+
+        Returns:
+            The matching SegmentRules object, or None if no rule matches.
+        """
+        from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
+        handler = ConfigurationHandler.get_instance()
+        for segment_rule in self.__parsed_segment_rules:
+            for rule in segment_rule.get_rules():
+                for segment_key in rule.get('segments', []):
+                    if handler.evaluate_segment(segment_key, entity_attributes):
+                        return segment_rule
+        return None
+
+    def track(self, event_key, entity_id, entity_attributes=None):
+        """Record a metric event for an entity of a guarded rollout.
+
+        Args:
+            event_key (str): Event key configured for the metric.
+            entity_id (str): Id of the Entity used in get_current_value.
+            entity_attributes (dict): Entity attributes used in get_current_value. If they match a segment
+            rule, that rule alone decides the guarded rollout and metric map, otherwise the feature level
+            guarded rollout is used.
+        """
         if not isinstance(event_key, str) or event_key.strip() == '':
             Logger.error("track: eventKey must be a non-empty string")
             return
         if not isinstance(entity_id, str) or entity_id.strip() == '':
             Logger.error("track: entityId must be a non-empty string")
             return
+        if entity_attributes is not None and not isinstance(entity_attributes, dict):
+            Logger.error("track: entityAttributes must be a dictionary")
+            return
 
-        resolved_metric_map = None
-        if self.__segment_rules:
-            for rule in self.__segment_rules:
-                rule_metric_map = rule.get('metric_map') if isinstance(rule, dict) else getattr(rule, 'metric_map', None)
-                if rule_metric_map and event_key in rule_metric_map:
-                    resolved_metric_map = rule_metric_map
-        if resolved_metric_map is None:
-            resolved_metric_map = self.get_metric_map()
-        if resolved_metric_map is None or event_key not in resolved_metric_map:
+        from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
+        matched_rule = None
+        if self.__segment_rules and entity_attributes:
+            matched_rule = self.get_matched_segment_rule(entity_attributes)
+
+        if matched_rule is not None:
+            if matched_rule.get_rollout_type() != config_constants.GUARDED:
+                Logger.warning("The segment rule matched for these entity attributes is not configured for guarded rollout")
+                return
+            metric_map = matched_rule.get_metric_map()
+            rollout_id = matched_rule.get_rollout_id()
+            rollout_percentage = int(matched_rule.get_rollout_percentage())
+
+        else:
+            if self.get_rollout_type() != config_constants.GUARDED:
+                Logger.warning("This feature is not configured for guarded rollout")
+                return
+            metric_map = self.get_metric_map()
+            rollout_id = self.get_rollout_id()
+            rollout_percentage = self.get_rollout_percentage()
+
+        if event_key not in metric_map:
             Logger.warning(f'The event key:{event_key} was not found for this feature:{self.get_feature_id()}')
             return
 
-        feature_id = self.get_feature_id()
-        rollout_id = None
-        metrics = resolved_metric_map[event_key]
-        rollout_percentage = 0
-
-        if self.get_rollout_type() == config_constants.GUARDED:
-            # check feature level guarded rollout
-            rollout_id = self.get_rollout_id()
-            rollout_percentage = self.get_rollout_percentage()
-        else:
-            # check segment_level guarded rollout
-            for segment_rule in self.get_segment_rules():
-                if segment_rule.get('rollout_type', '') == config_constants.GUARDED:
-                    rollout_id = segment_rule.get('rollout_id', '')
-                    if segment_rule.get('rollout_percentage') == config_constants.DEFAULT_ROLLOUT_PERCENTAGE:
-                        rollout_percentage = self.get_rollout_percentage()
-                    else:
-                        rollout_percentage = int(segment_rule.get('rollout_percentage'))
-
-        if rollout_id is None:
-            Logger.warning("This feature or any of it's rules or not configured for guarded rollout")
-            return
-        from ibm_appconfiguration.configurations.configuration_handler import ConfigurationHandler
         ConfigurationHandler.get_instance().add_guarded_metric_entry(
             entity_id,
-            feature_id,
+            self.get_feature_id(),
             rollout_id,
             event_key,
-            metrics,
+            metric_map[event_key],
             rollout_percentage
         )
